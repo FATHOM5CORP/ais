@@ -1,0 +1,21 @@
+# ignore zipped data files (i.e. like those downloaded by get_data.sh
+*.zip
+
+# ignore .csv files which are generally too large for hosting on github
+*.csv
+
+# ignore files in the utilities/bin except the readme
+utilities/bin/*
+!utilities/bin/README.txt
+
+# ignore DS_STORE artifacts from MAC OS
+.DS_Store
+
+# ignore jupyter notebook artifacts
+.ipynb_checkpoints
+
+# ignore coverage files resulting from go test -coverage=c.out
+c.out
+
+# ignore debug launch files from VSCode
+.vscode
