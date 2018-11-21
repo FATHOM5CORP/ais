@@ -224,6 +224,10 @@ func (rs *RecordSet) Flush() error {
 func (rs *RecordSet) AppendField(newField string, requiredHeaders []string, gen Generator) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 
+	h := rs.Headers()
+	h.fields = append(h.fields, newField)
+	rs2.SetHeaders(h)
+
 	// Find the index values for the Generator
 	var indices []int
 	for _, target := range requiredHeaders {
@@ -251,21 +255,21 @@ func (rs *RecordSet) AppendField(newField string, requiredHeaders []string, gen 
 			return nil, fmt.Errorf("appendfield: generate: %v", err)
 		}
 		rec = append(rec, string(field))
-		err = rs2.w.Write(rec)
+		err = rs2.Write(rec)
 		if err != nil {
 			return nil, fmt.Errorf("appendfield: csv write error: %v", err)
 		}
 		written++
 		if written%flushThreshold == 0 {
-			rs2.w.Flush()
-			if err := rs2.w.Error(); err != nil {
+			err := rs2.Flush()
+			if err != nil {
 				return nil, fmt.Errorf("appendfield: csv flush error: %v", err)
 			}
 		}
 
 	}
-	rs2.w.Flush()
-	if err := rs2.w.Error(); err != nil {
+	err := rs2.Flush()
+	if err != nil {
 		return nil, fmt.Errorf("appendfield: csv flush error: %v", err)
 	}
 	return rs2, nil
@@ -422,26 +426,26 @@ func (rs *RecordSet) Save(name string) error {
 func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 	vs := make(VesselSet)
 
-	mmsiIndex, ok := rs.h.Contains("MMSI")
+	mmsiIndex, ok := rs.Headers().Contains("MMSI")
 	if !ok {
 		return nil, fmt.Errorf("unique vessels: recordset does not contain 'MMSI' header")
 	}
-	vesselNameIndex, ok := rs.h.Contains("VesselName")
+	vesselNameIndex, ok := rs.Headers().Contains("VesselName")
 	if !ok {
 		return nil, fmt.Errorf("unique vessels: recordset does not contain 'VesselName' header")
 	}
 
-	var rec Record
+	var rec *Record
 	var err error
 	for {
-		rec, err = rs.r.Read()
+		rec, err = rs.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, fmt.Errorf("unique vessel: read error on csv file: %v", err)
 		}
-		vs[Vessel{MMSI: rec[mmsiIndex], VesselName: rec[vesselNameIndex]}] = true
+		vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}] = true
 	}
 
 	return vs, nil
@@ -458,7 +462,7 @@ type ByTimestamp struct {
 // the sort.Interface tools.
 func NewByTimestamp(rs *RecordSet) (*ByTimestamp, error) {
 	bt := new(ByTimestamp)
-	bt.h = rs.h
+	bt.h = rs.Headers()
 
 	// Read the data from the underlying Recordset into a slice
 	var err error
@@ -503,6 +507,8 @@ func (bt ByTimestamp) Less(i, j int) bool {
 // ON RECORDSETS OF ABOUT A MILLION RECORDS.
 func (rs *RecordSet) SortByTime() (*RecordSet, error) {
 	rs2 := NewRecordSet()
+	rs2.SetHeaders(rs.Headers())
+
 	bt, err := NewByTimestamp(rs)
 	if err != nil {
 		return nil, fmt.Errorf("sortbytime: %v", err)
@@ -511,22 +517,20 @@ func (rs *RecordSet) SortByTime() (*RecordSet, error) {
 	sort.Sort(bt)
 
 	// Write the reports to the new RecordSet
+	// NOTE: Headers are written only when the RecordSet is saved to disk
 	written := 0
-	rs2.w.Write(rs2.h.fields) // headers
-	written++
-
 	for _, rec := range *bt.data {
-		rs2.w.Write(rec)
+		rs2.Write(rec)
 		written++
 		if written%flushThreshold == 0 {
-			rs2.w.Flush()
-			if err := rs2.w.Error(); err != nil {
+			err := rs2.Flush()
+			if err != nil {
 				return nil, fmt.Errorf("sortbytime: flush error writing to new recordset: %v", err)
 			}
 		}
 	}
-	rs2.w.Flush()
-	if err := rs2.w.Error(); err != nil {
+	err = rs2.Flush()
+	if err != nil {
 		return nil, fmt.Errorf("sortbytime: flush error writing to new recordset: %v", err)
 	}
 
@@ -542,7 +546,7 @@ func (rs *RecordSet) loadRecords() (*[]Record, error) {
 	record := new(Record)
 	for {
 		var err error
-		*record, err = rs.r.Read()
+		record, err = rs.Read()
 		if err == io.EOF {
 			break
 		}
