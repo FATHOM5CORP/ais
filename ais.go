@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"hash/fnv"
 	"io"
 	"os"
@@ -348,8 +349,7 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 	rs2.SetHeaders(rs.Headers())
 
 	// Iterate over the records
-	written := 0
-	for i := n; i != 0; i-- {
+	for written := 0; written < n; {
 		var rec *Record
 		rec, err := rs.Read()
 		if err == io.EOF {
@@ -358,10 +358,6 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("matching: read error on csv file: %v", err)
 		}
-		// rep, err := rec.Parse((*rs).h)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("matching: rep parse error: %v", err)
-		// }
 
 		if match(rec) {
 			err := rs2.Write(*rec)
@@ -657,6 +653,23 @@ func (h Headers) String() string {
 // files.
 type Record []string
 
+// Hash returns a 64 bit hash/fnv of the Record
+func (r Record) Hash() uint64 {
+	var h64 hash.Hash64
+	h64 = fnv.New64a()
+	h64.Write(r.Data())
+	return h64.Sum64()
+}
+
+// Data returns the underlying []string in a Record as a []byte
+func (r Record) Data() []byte {
+	var b bytes.Buffer
+	for _, f := range r {
+		b.WriteString(f)
+	}
+	return b.Bytes()
+}
+
 // Distance calculates the haversine distance between two AIS records that
 // contain a latitude and longitude measurement identified by their index
 // number in the Record slice.
@@ -819,7 +832,7 @@ type PairHash uint64
 
 // Hash64 returns the ais.PairHash from two AIS records based on the
 // MMSI, LAT, LON, and BaseDateTime of each vessel report
-func Hash64(a1, a2 Record, h Headers) (PairHash, error) {
+func PairHash64(a1, a2 Record, h Headers) (PairHash, error) {
 	r1, err := a1.Parse(h)
 	if err != nil {
 		return 0, err
@@ -833,21 +846,21 @@ func Hash64(a1, a2 Record, h Headers) (PairHash, error) {
 	for _, v := range r1.Data() {
 		err := binary.Write(buf, binary.LittleEndian, v)
 		if err != nil {
-			return 0, fmt.Errorf("hash64: binary.Write failed: %s", err)
+			return 0, fmt.Errorf("pairhash64: binary.Write failed: %s", err)
 		}
 	}
 
 	for _, v := range r2.Data() {
 		err := binary.Write(buf, binary.LittleEndian, v)
 		if err != nil {
-			return 0, fmt.Errorf("hash64: binary.Write failed: %s", err)
+			return 0, fmt.Errorf("pairhash64: binary.Write failed: %s", err)
 		}
 	}
 
 	h64 := fnv.New64a()
 	_, err = h64.Write(buf.Bytes())
 	if err != nil {
-		return 0, fmt.Errorf("hash64: fnv.Write failed: %s", err)
+		return 0, fmt.Errorf("pairhash64: fnv.Write failed: %s", err)
 	}
 
 	return PairHash(h64.Sum64()), nil
