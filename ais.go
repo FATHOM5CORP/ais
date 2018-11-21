@@ -45,8 +45,9 @@ type Definition struct {
 }
 
 // Match is the function signature for the argument to ais.Matching
-// used to match Reports to create a subset
-type Match func(rep Report) bool
+// used to match Records.  The variadic argument indices indicate the
+// index numbers in the record for the fields that will be compared.
+type Match func(rec *Record) bool
 
 // Vessel is a struct for the identifying information about a specific
 // ship in an AIS dataset.  NOTE: REFINEMENT OF PACKAGE AIS WILL
@@ -89,7 +90,7 @@ func NewGeohasher(rs *RecordSet) *Geohasher {
 	return &g
 }
 
-// Generate returns a geohash Field for a Geohash which is a thin interface
+// Generate returns a geohash Field for a Geohasher which is a thin interface
 // to an underlying Record.  The geohash returned is accurate to 22 bits of
 // precision.
 func (g *Geohasher) Generate(rec Record, index ...int) (Field, error) {
@@ -357,11 +358,12 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("matching: read error on csv file: %v", err)
 		}
-		rep, err := rec.Parse((*rs).h)
-		if err != nil {
-			return nil, fmt.Errorf("matching: rep parse error: %v", err)
-		}
-		if match(rep) {
+		// rep, err := rec.Parse((*rs).h)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("matching: rep parse error: %v", err)
+		// }
+
+		if match(rec) {
 			err := rs2.Write(*rec)
 			if err != nil {
 				return nil, fmt.Errorf("matching: csv write error: %v", err)
