@@ -11,9 +11,9 @@ import (
 // InteractionFields are the default column headers used to write a csv file of two vessel
 // interactions. The first field InteractionHash is an ParirHash64 return value that uniquely
 // identifies this interaction and Distance(nm) is the haversine distance between the two vessels.
-const InteractionFields = `"InteractionHash", "Distance(nm)",
-"MMSI_1", "BaseDateTime_1", "LAT_1", "LON_1", "SOG_1", "COG_1", "Heading_1", "VesselName_1", "IMO_1", "CallSign_1", "VesselType_1", "Status_1", "Length_1", "Width_1", "Draft_1", "Cargo_1", "Geohash_1",
-"MMSI_2", "BaseDateTime_2", "LAT_2", "LON_2", "SOG_2", "COG_2", "Heading_2", "VesselName_2", "IMO_2", "CallSign_2", "VesselType_2", "Status_2", "Length_2", "Width_2", "Draft_2", "Cargo_2", "Geohash_2"`
+const InteractionFields = "InteractionHash,Distance(nm)," +
+	"MMSI_1,BaseDateTime_1,LAT_1,LON_1,SOG_1,COG_1,Heading_1,VesselName_1,IMO_1,CallSign_1,VesselType_1,Status_1,Length_1,Width_1,Draft_1,Cargo_1,Geohash_1," +
+	"MMSI_2,BaseDateTime_2,LAT_2,LON_2,SOG_2,COG_2,Heading_2,VesselName_2,IMO_2,CallSign_2,VesselType_2,Status_2,Length_2,Width_2,Draft_2,Cargo_2,Geohash_2"
 
 // RecordPair holds pointers to two Records.
 type RecordPair struct {
