@@ -111,17 +111,19 @@ func (g *Geohasher) Generate(rec Record, index ...int) (Field, error) {
 		return "", fmt.Errorf("geohash: unable to parse lon")
 	}
 	hash := geohash.EncodeIntWithPrecision(lat, lon, uint(22))
-	return Field(fmt.Sprintf("%x", hash)), nil
+	return Field(fmt.Sprintf("%#x", hash)), nil
 }
 
 // RecordSet is an the high level interface to deal with comma
 // separated value files of AIS records.  Unexported fields are
 // encapsulated by getter methods.
 type RecordSet struct {
-	r    *csv.Reader
-	w    *csv.Writer
-	h    Headers
-	data io.ReadWriter
+	r     *csv.Reader   // internally held csv pointer
+	w     *csv.Writer   // internally held csv pointer
+	h     Headers       // Headers used to parse each Record
+	data  io.ReadWriter // client provided io interface
+	first *Record       // accessible only by package functions
+	stash *Record       // stashed Record from a client Read() but not yet used
 }
 
 // NewRecordSet returns a *Recordset that has an in-memory data buffer for
@@ -174,9 +176,6 @@ func OpenRecordSet(filename string) (*RecordSet, error) {
 	}
 	rs.h = h
 
-	// resetting the file pointer broke RecordSet.Read()
-	// f.Seek(0, 0)
-
 	return rs, nil
 }
 
@@ -189,6 +188,22 @@ func (rs *RecordSet) SetHeaders(h Headers) {
 // Record.  The idiomatic way to iterate over a recordset comes from the
 // same idiom to read a file using encoding/csv.
 func (rs *RecordSet) Read() (*Record, error) {
+	// When Read is called by clients they want the first Record. If that
+	// Record has already been read by internal packages return the one that
+	// was already read internally.
+	if rec := rs.first; rec != nil {
+		rs.first = nil
+		return rec, nil
+	}
+
+	// Clients may Read() a Record but not use it and want to get that same
+	// Record back on the next call to Read().  Stash allows this functionality
+	// to work.
+	if rec := rs.stash; rec != nil {
+		rs.stash = nil
+		return rec, nil
+	}
+
 	r, err := rs.r.Read()
 	if err == io.EOF {
 		return nil, err
@@ -198,6 +213,28 @@ func (rs *RecordSet) Read() (*Record, error) {
 	}
 	rec := Record(r)
 	return &rec, nil
+}
+
+// ReadFirst is an unexported method used by various internal packages
+// to get the first line of the RecordSet.
+func (rs *RecordSet) readFirst() (*Record, error) {
+	if rs.first != nil {
+		return rs.first, nil
+	}
+	r, err := rs.r.Read()
+	if err != nil {
+		return nil, err
+	}
+	rec := Record(r)
+	rs.first = &rec
+	return rs.first, nil
+}
+
+// Stash allows a client to take Record that has been previously retrieved
+// through Read() and ensure the next call to Read() returns this same
+// Record.
+func (rs *RecordSet) Stash(rec *Record) {
+	rs.stash = rec
 }
 
 // Write calls Write() on the csv.Writer held by the RecordSet and returns an
@@ -348,8 +385,10 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
 
-	// Iterate over the records
-	for written := 0; written < n; {
+	// Loop conditions:
+	//
+	recordsLeftToWrite := n
+	for recordsLeftToWrite != 0 {
 		var rec *Record
 		rec, err := rs.Read()
 		if err == io.EOF {
@@ -364,8 +403,8 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 			if err != nil {
 				return nil, fmt.Errorf("matching: csv write error: %v", err)
 			}
-			written++
-			if written%flushThreshold == 0 {
+			recordsLeftToWrite--
+			if recordsLeftToWrite%flushThreshold == 0 {
 				err := rs2.Flush()
 				if err != nil {
 					return nil, fmt.Errorf("matching: csv flush error: %v", err)
