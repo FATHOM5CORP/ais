@@ -7,7 +7,6 @@ package ais
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -636,8 +635,8 @@ func (h Headers) Contains(field string) (i int, ok bool) {
 	return 0, false
 }
 
-// Valid returns true if the passed headers contain identifiable fields
-// necessary for creating AIS reports.
+// Valid returns true if the passed headers contain the minimum viable fields
+// to create a unique ais report.
 // NOTE: THE VALIDATION HARDCODED HERE IS NOT SCALABLE.  THE VALID FUNCTION
 // SHOULD CHECK FIELD NAMES ASSOCIATED WITH SEVERAL DATA SOURCES NOT JUST
 // THE NAMES AVAILABLE IN THE MARINECADASTRE DATA.
@@ -685,11 +684,11 @@ func (h Headers) String() string {
 	return b.String()
 }
 
-// Record wraps the return value from a csv.Reader. Many publicly
-// available data sources provide AIS records in large csv files.Record
-// The standard package encoding/csv is a dependency of this package and
-// is used in many locations to read and write comma separated value
-// files.
+// Record wraps the return value from a csv.Reader because many publicly
+// available data sources provide AIS records in large csv files. The Record
+// type and its associate methods allow clients of the package to deal
+// directly with the abtraction of individual AIS records and handle the
+// csv file read/write operations internally.
 type Record []string
 
 // Hash returns a 64 bit hash/fnv of the Record
@@ -862,45 +861,4 @@ func (rep Report) Data() []interface{} {
 		float64(rep.Lon),
 	}
 	return rep.data
-}
-
-// PairHash is a unique 64 bit fnv hash for a pair of ais.Record
-// arguments.  PairHash is useful for uniquely identifying a
-// two-vessel interaction that may appear in multiple datasets.
-type PairHash uint64
-
-// Hash64 returns the ais.PairHash from two AIS records based on the
-// MMSI, LAT, LON, and BaseDateTime of each vessel report
-func PairHash64(a1, a2 Record, h Headers) (PairHash, error) {
-	r1, err := a1.Parse(h)
-	if err != nil {
-		return 0, err
-	}
-	r2, err := a2.Parse(h)
-	if err != nil {
-		return 0, err
-	}
-
-	buf := new(bytes.Buffer)
-	for _, v := range r1.Data() {
-		err := binary.Write(buf, binary.LittleEndian, v)
-		if err != nil {
-			return 0, fmt.Errorf("pairhash64: binary.Write failed: %s", err)
-		}
-	}
-
-	for _, v := range r2.Data() {
-		err := binary.Write(buf, binary.LittleEndian, v)
-		if err != nil {
-			return 0, fmt.Errorf("pairhash64: binary.Write failed: %s", err)
-		}
-	}
-
-	h64 := fnv.New64a()
-	_, err = h64.Write(buf.Bytes())
-	if err != nil {
-		return 0, fmt.Errorf("pairhash64: fnv.Write failed: %s", err)
-	}
-
-	return PairHash(h64.Sum64()), nil
 }

@@ -29,6 +29,9 @@ func (c *Cluster) String() string {
 	return buf.String()
 }
 
+// Data returns the encapsulated data in the Cluster
+func (c *Cluster) Data() []*Record { return c.data }
+
 // ClusterMap is an abstraction for a map[geohash]*Cluster.
 type ClusterMap map[uint64]*Cluster
 
