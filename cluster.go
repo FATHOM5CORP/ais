@@ -7,7 +7,7 @@ import (
 )
 
 // Cluster is an abstraction for a []*Record. The intent is that a Cluster of
-// Records are vessels that share the same Geohash
+// Records are vessels that share the same geohash
 type Cluster struct {
 	data []*Record
 }

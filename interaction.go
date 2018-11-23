@@ -5,18 +5,15 @@ import (
 	"fmt"
 	"hash/fnv"
 	"os"
+	"strings"
 )
 
-// InteractionHeaders is the set of Headers used to write Records of two vessel interactions.
-// The first field InteractionHash is an ais.PairHash that uniquely identifies this interaction
-// and distance is the haversine distance between the two vessels.
-var InteractionHeaders = Headers{
-	fields: []string{"InteractionHash", "Distance(nm)",
-		"MMSI_1", "BaseDateTime_1", "LAT_1", "LON_1", "SOG_1", "COG_1", "Heading_1", "VesselName_1", "IMO_1", "CallSign_1", "VesselType_1", "Status_1", "Length_1", "Width_1", "Draft_1", "Cargo_1", "Geohash_1",
-		"MMSI_2", "BaseDateTime_2", "LAT_2", "LON_2", "SOG_2", "COG_2", "Heading_2", "VesselName_2", "IMO_2", "CallSign_2", "VesselType_2", "Status_2", "Length_2", "Width_2", "Draft_2", "Cargo_2", "Geohash_2",
-	},
-	dictionary: nil,
-}
+// InteractionFields are the default column headers used to write a csv file of two vessel
+// interactions. The first field InteractionHash is an ParirHash64 return value that uniquely
+// identifies this interaction and Distance(nm) is the haversine distance between the two vessels.
+const InteractionFields = `"InteractionHash", "Distance(nm)",
+"MMSI_1", "BaseDateTime_1", "LAT_1", "LON_1", "SOG_1", "COG_1", "Heading_1", "VesselName_1", "IMO_1", "CallSign_1", "VesselType_1", "Status_1", "Length_1", "Width_1", "Draft_1", "Cargo_1", "Geohash_1",
+"MMSI_2", "BaseDateTime_2", "LAT_2", "LON_2", "SOG_2", "COG_2", "Heading_2", "VesselName_2", "IMO_2", "CallSign_2", "VesselType_2", "Status_2", "Length_2", "Width_2", "Draft_2", "Cargo_2", "Geohash_2"`
 
 // RecordPair holds pointers to two Records.
 type RecordPair struct {
@@ -42,7 +39,10 @@ func NewInteractions(h Headers) (*Interactions, error) {
 		return nil, fmt.Errorf("new interactions: headers argument did not pass headers.valid()")
 	}
 	inter := new(Interactions)
-	inter.OutputHeaders = InteractionHeaders
+	inter.OutputHeaders = Headers{
+		fields:     strings.Split(InteractionFields, ","),
+		dictionary: nil,
+	}
 	inter.RecordHeaders = h
 	inter.data = make(map[uint64]*RecordPair)
 
@@ -144,8 +144,8 @@ func (inter *Interactions) Save(filename string) error {
 	return nil
 }
 
-// PairHash64 returns PairHash from two AIS records based on the string values of
-// MMSI, BaseDateTime, LAT, and LON for each vessel.  The argument indices must
+// PairHash64 returns a 64 bit fnv hash from two AIS records based on the string values of
+// MMSI, BaseDateTime, LAT, and LON for each vessel. Indices must
 // contain the index values in rec1 and rec2 for MMSI, BaseDateTime, LAT and LON.
 func PairHash64(rec1, rec2 *Record, indices [4]int) (uint64, error) {
 	h64 := fnv.New64a()
