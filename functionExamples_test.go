@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/FATHOM5/Seattle_Reasonable_Track2/src/ais"
+	"github.com/FATHOM5/ais"
 )
 
 // Example demonstrates a simple use of the Distance function.

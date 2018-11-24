@@ -140,3 +140,12 @@ func (win Window) String() string {
 	}
 	return buf.String()
 }
+
+// Config provides a pretty print of the Window's configuration
+func (win *Window) Config() string {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("Window has the following configuration\n"))
+	buf.WriteString(fmt.Sprintf("\tLeft marker: %s\n", win.Left().Format(TimeLayout)))
+	buf.WriteString(fmt.Sprintf("\tWindow width: %v\n", win.Width()))
+	return buf.String()
+}

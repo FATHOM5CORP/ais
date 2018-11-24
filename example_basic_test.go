@@ -4,7 +4,7 @@ package ais_test
 import (
 	"strings"
 
-	"github.com/FATHOM5/Seattle_Reasonable_Track2/src/ais"
+	"github.com/FATHOM5/ais"
 )
 
 // This example shows the basic usage of creating a new RecordSet and then

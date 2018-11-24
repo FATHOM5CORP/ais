@@ -87,6 +87,10 @@ func (inter *Interactions) writeInteractions(data []*Record) error {
 	}
 	rec1 := data[0]
 	for _, rec2 := range data[1:] {
+		// Ignore pairs where it is subsequent reports of the same MMSI
+		if (*rec1)[inter.hashIndices[0]] == (*rec2)[inter.hashIndices[0]] {
+			continue
+		}
 		hash, err := PairHash64(rec1, rec2, inter.hashIndices)
 		hash2, err := PairHash64(rec2, rec1, inter.hashIndices)
 		if err != nil {
@@ -105,7 +109,7 @@ func (inter *Interactions) writeInteractions(data []*Record) error {
 func (inter *Interactions) Save(filename string) error {
 	out, err := os.Create(filename)
 	if err != nil {
-		return fmt.Errorf("interactions save: v", err)
+		return fmt.Errorf("interactions save: %v", err)
 	}
 
 	w := csv.NewWriter(out)
