@@ -76,23 +76,29 @@ type Field string
 // from the index values of existing Fields in a Record.  The receiver for
 // Generator should be a pointer in order to avoid creating a copy of the
 // Record when Generate is called millions of times iterating over a large
-// RecordSet.
+// RecordSet.  The Generator interface is used in the AppendField method
+// of RecordSet.
 type Generator interface {
 	Generate(rec Record, index ...int) (Field, error)
 }
 
-// Geohasher is the base type for implementing a Generator
+// Geohasher is the base type for implementing the Generator interface and
+// appends a github.commccloughlin/geohash to each Record in the RecordSet.
 type Geohasher RecordSet
 
-// NewGeohasher returns a pointer to a new Geohasher
+// NewGeohasher returns a pointer to a new Geohasher.  The simplest use of the
+// GeoHasher type to append a geohash field to a RecordSet is to call AppendField
+// and pass NewGeohasher(rs) as the Generator argument in AppendField.
 func NewGeohasher(rs *RecordSet) *Geohasher {
 	g := Geohasher(*rs)
 	return &g
 }
 
-// Generate returns a geohash Field for a Geohasher which is a thin interface
-// to an underlying Record.  The geohash returned is accurate to 22 bits of
-// precision.
+// Generate returns a geohash Field.  The geohash returned is accurate to 22
+// bits of precision which corresponds to about .1 degree differences in
+// lattitude and longitude.  The index values for the variadic function on
+// a *Geohasher must be the index of "LAT" and "LON" in the Record, rec.  Field
+// will come back nil for any non-nil error returned.
 func (g *Geohasher) Generate(rec Record, index ...int) (Field, error) {
 	if len(index) != 2 {
 		return "", fmt.Errorf("geohash: generate: len(index) must equal" +

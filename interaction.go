@@ -21,13 +21,16 @@ type RecordPair struct {
 	rec2 *Record
 }
 
-// Interactions is an abstraction two Record hash and the pointer to the RecordPair
-// that made up the hash.
+// Interactions is an abstraction for two-vessel interactions.  It requires a set of
+// Headers that correspond to the Record slices being compared and it requires a set of
+// Headers for the output.  The default for OutputHeaders is the const InteractionFields
+// with a nil dictionary. The data held by interactions is a
+// map[hash]*RecordPair.  This guarantees a non-duplicative set of interactions in the output.
 type Interactions struct {
-	RecordHeaders Headers // for the Records that will be used to create interactions
-	OutputHeaders Headers // for an output RecordSet that may be written from the 2-ship interactions
-	hashIndices   [4]int  // Headers index values for MMSI, BaseDateTime, LAT, and LON
-	data          map[uint64]*RecordPair
+	RecordHeaders Headers                // for the Records that will be used to create interactions
+	OutputHeaders Headers                // for an output RecordSet that may be written from the 2-ship interactions
+	hashIndices   [4]int                 // Headers index values for MMSI, BaseDateTime, LAT, and LON
+	data          map[uint64]*RecordPair // uint64 index is PairHash64 return value
 }
 
 // NewInteractions creates a new set of interactions.  It requires a set of Headers from the

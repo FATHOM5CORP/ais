@@ -133,7 +133,7 @@ func (win *Window) validate() error {
 }
 
 // String implements the Stringer interface for Window.
-func (win Window) String() string {
+func (win *Window) String() string {
 	var buf bytes.Buffer
 	for _, rec := range win.Data {
 		fmt.Fprintln(&buf, rec)

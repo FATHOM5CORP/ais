@@ -20,6 +20,7 @@ func (c *Cluster) Append(rec *Record) {
 // Size returns the length of the underlying slice managed by the Cluster.
 func (c *Cluster) Size() int { return len(c.data) }
 
+// String impelments the stringer interface for Cluster
 func (c *Cluster) String() string {
 	buf := bytes.Buffer{}
 	for _, rec := range c.data {
