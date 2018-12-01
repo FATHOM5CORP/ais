@@ -47,7 +47,7 @@ type Definition struct {
 // Match is the function signature for the argument to ais.Matching
 // used to match Records.  The variadic argument indices indicate the
 // index numbers in the record for the fields that will be compared.
-type Match func(rec *Record) bool
+// type Match func(rec *Record) bool
 
 // Vessel is a struct for the identifying information about a specific
 // ship in an AIS dataset.  NOTE: REFINEMENT OF PACKAGE AIS WILL
@@ -383,15 +383,14 @@ func (rs *RecordSet) SetDictionary(blob []byte) error {
 	return nil
 }
 
-// LimitMatching returns a pointer to RecordSet with the first n records that
-// equal the Match function. A negative number for n will return all matches in
-// the set.
-func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
+// SubsetLimit returns a pointer to a new RecordSet with the first n records that
+// return true from calls to Match(*Record) (bool, error) on the provided argument m
+// that implements the Matching interface.
+// Returns nil for the *RecordSet when error is non-nil.
+func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
 
-	// Loop conditions:
-	//
 	recordsLeftToWrite := n
 	for recordsLeftToWrite != 0 {
 		var rec *Record
@@ -400,19 +399,24 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("matching: read error on csv file: %v", err)
+			return nil, fmt.Errorf("subset: read error on csv file: %v", err)
 		}
 
-		if match(rec) {
+		match, err := m.Match(rec)
+		if err != nil {
+			return nil, err
+		}
+
+		if match {
 			err := rs2.Write(*rec)
 			if err != nil {
-				return nil, fmt.Errorf("matching: csv write error: %v", err)
+				return nil, fmt.Errorf("subset: csv write error: %v", err)
 			}
 			recordsLeftToWrite--
 			if recordsLeftToWrite%flushThreshold == 0 {
 				err := rs2.Flush()
 				if err != nil {
-					return nil, fmt.Errorf("matching: csv flush error: %v", err)
+					return nil, fmt.Errorf("subset: csv flush error: %v", err)
 				}
 			}
 		}
@@ -423,15 +427,101 @@ func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
 	}
 
 	return rs2, nil
-
 }
+
+// Subset returns a pointer to a new *RecordSet that contains all of the records that
+// return true from calls to Match(*Record) (bool, error) on the provided argument m
+// that implements the Matching interface.
+// Returns nil for the *RecordSet when error is non-nil.
+func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
+	return rs.SubsetLimit(m, -1)
+}
+
+// Matching provides an interface to pass into the Subset and LimitSubset functions
+// of a RecordSet. Type Box is provided in the package as a concrete implementation
+// of Matching.  Users that desire to create other types that can filter a *RecordSet
+// are encourage to copy the implementation of Box for this purpose.
+type Matching interface {
+	Match(*Record) (bool, error)
+}
+
+// Box provides a type with min and max values for latitude and longitude, and Box
+// implements the Matching interface.  This provides a convenient way to create a
+// Box and pass the new object to Subset in order to get a *RecordSet defined
+// with a geographic boundary.  Box includes records that are on the border
+// and at the vertices of the geographic boundary. Constructing a box also requires
+// the index value for lattitude and longitude in a *Record.  These index values will be
+// called in *Record.ParseFloat(index) from the Match method of a Box in order to
+// see if the Record is in the Box.
+type Box struct {
+	MinLat, Maxlat, MinLon, MaxLon float64
+	LatIndex, LonIndex             int
+}
+
+// Match implements the Matching interface for a Box.  Errors in the Match function
+// can be caused by parse errors when converting string Record values into their
+// typed values. When Match returns a non-nil error the bool value will be false.
+func (b *Box) Match(rec *Record) (bool, error) {
+	lat, err := rec.ParseFloat(b.LatIndex)
+	if err != nil {
+		return false, fmt.Errorf("unable to parse %v", (*rec)[b.LatIndex])
+	}
+	lon, err := rec.ParseFloat(b.LonIndex)
+	if err != nil {
+		return false, fmt.Errorf("unable to parse %v", (*rec)[b.LonIndex])
+	}
+
+	return lat >= b.MinLat && lat <= b.Maxlat && lon >= b.MinLon && lon <= b.MaxLon, nil
+}
+
+// LimitMatching returns a pointer to RecordSet with the first n records that
+// equal the Match function. A negative number for n will return all matches in
+// the set.
+// func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
+// 	rs2 := NewRecordSet()
+// 	rs2.SetHeaders(rs.Headers())
+
+// 	// Loop conditions:
+// 	recordsLeftToWrite := n
+// 	for recordsLeftToWrite != 0 {
+// 		var rec *Record
+// 		rec, err := rs.Read()
+// 		if err == io.EOF {
+// 			break
+// 		}
+// 		if err != nil {
+// 			return nil, fmt.Errorf("matching: read error on csv file: %v", err)
+// 		}
+
+// 		if match(rec) {
+// 			err := rs2.Write(*rec)
+// 			if err != nil {
+// 				return nil, fmt.Errorf("matching: csv write error: %v", err)
+// 			}
+// 			recordsLeftToWrite--
+// 			if recordsLeftToWrite%flushThreshold == 0 {
+// 				err := rs2.Flush()
+// 				if err != nil {
+// 					return nil, fmt.Errorf("matching: csv flush error: %v", err)
+// 				}
+// 			}
+// 		}
+// 	}
+// 	err := rs2.Flush()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("matching: csv flush error: %v", err)
+// 	}
+
+// 	return rs2, nil
+
+// }
 
 // Matching returns a pointer to a new *RecordSet and an error value.
 // The returned *RecordSet contains all of the records in rs that equal the
 // Match function.
-func (rs *RecordSet) Matching(match Match) (*RecordSet, error) {
-	return rs.LimitMatching(match, -1)
-}
+// func (rs *RecordSet) Matching(match Match) (*RecordSet, error) {
+// 	return rs.LimitMatching(match, -1)
+// }
 
 // Save writes the RecordSet to disk in the filename provided
 func (rs *RecordSet) Save(name string) error {

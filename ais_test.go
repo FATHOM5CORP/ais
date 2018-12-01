@@ -7,6 +7,7 @@ package ais
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -361,6 +362,86 @@ func TestNewHeaders(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewHeaders(tt.args.fields, tt.args.defs); !got.Equals(tt.want) {
 				t.Errorf("NewHeaders() = \n%v \nwant \n%v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBox_Match(t *testing.T) {
+	data1 := strings.Split("477307900,2017-12-01T00:00:03,36.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
+	rec1 := Record(data1)
+
+	nassau := strings.Split("477307900,2017-12-01T00:00:03,25.06,-77.345,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
+	rec2 := Record(nassau)
+
+	nassauBadLat := strings.Split("477307900,2017-12-01T00:00:03,25.06,-77.XXX,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
+	rec3 := Record(nassauBadLat)
+
+	nassauBadLon := strings.Split("477307900,2017-12-01T00:00:03,25.LL,-77.345,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
+	rec4 := Record(nassauBadLon)
+
+	type fields struct {
+		MinLat   float64
+		Maxlat   float64
+		MinLon   float64
+		MaxLon   float64
+		LatIndex int
+		LonIndex int
+	}
+	type args struct {
+		rec *Record
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			name:   "should fail",
+			fields: fields{15, 27.5, -80, -60, 2, 3},
+			args:   args{&rec1},
+			want:   false,
+		},
+		{
+			name:   "should pass",
+			fields: fields{15, 27.5, -80, -60, 2, 3},
+			args:   args{&rec2},
+			want:   true,
+		},
+		{
+			name:    "lat parse error",
+			fields:  fields{15, 27.5, -80, -60, 2, 3},
+			args:    args{&rec3},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name:    "lon parse error",
+			fields:  fields{15, 27.5, -80, -60, 2, 3},
+			args:    args{&rec4},
+			want:    false,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &Box{
+				MinLat:   tt.fields.MinLat,
+				Maxlat:   tt.fields.Maxlat,
+				MinLon:   tt.fields.MinLon,
+				MaxLon:   tt.fields.MaxLon,
+				LatIndex: tt.fields.LatIndex,
+				LonIndex: tt.fields.LonIndex,
+			}
+			got, err := b.Match(tt.args.rec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Box.Match() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Box.Match() = %v, want %v", got, tt.want)
 			}
 		})
 	}

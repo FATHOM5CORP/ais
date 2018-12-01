@@ -29,3 +29,22 @@ func ExampleRecord_Distance() {
 	// Output:
 	// The ships are 4.8nm away from one another.
 }
+
+func ExampleRecord_ParseTime() {
+	h := strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ",")
+	data := strings.Split("477307900,2017-12-01T00:00:03,36.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
+
+	headers := ais.NewHeaders(h, nil)
+	rec := ais.Record(data)
+
+	timeIndex, _ := headers.Contains("BaseDateTime")
+
+	t, err := rec.ParseTime(timeIndex)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("The record timestamp is at %s\n", t.Format(ais.TimeLayout))
+
+	// Output
+	// The record timestamp is at 2017-12-01T00:00:03
+}
