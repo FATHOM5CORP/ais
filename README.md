@@ -1,6 +1,7 @@
 [![GoDoc Reference](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](http://godoc.org/github.com/FATHOM5/ais)
 [![Build Status](https://travis-ci.org/FATHOM5/ais.svg?branch=master)](https://travis-ci.org/FATHOM5/ais)
 [![Go Report Card](https://goreportcard.com/badge/github.com/FATHOM5/ais?style=flat-square)](https://goreportcard.com/report/github.com/FATHOM5/ais)
+[![Coverage Status](https://coveralls.io/repos/github/FATHOM5/ais/badge.svg?branch=master)](https://coveralls.io/github/FATHOM5/ais?branch=master)
 <p align="center">
  <img src="images/HtM_150.png"> 
  <img src="images/install_screenshot.png">
@@ -10,6 +11,8 @@
 #### Jump straight to [Usage](README.md#usage)
 
 # Package AIS - *Beta Release*
+_Note: This repo is actively maintained with focus on increasing code test coverage to 100%.  Until then it is appropriate for use in research, but should not be used for navigation or other mission critical applications._
+
 In September 2018 the United States Navy hosted the annual [HACKtheMACHINE](https://hackthemachine.ai) Navy Digital Experience in Seattle, Washington. The three-day prototyping, public engagment and educational experience is designed to generated insights into maritime cybersecurity, data science, and rapid prototyping. Track 2, the data science track, focused on collision avoidance between ships.  
 
 The U.S. Navy is the largest international operator of unmanned and autonomous systems sailing on and under the world's oceans. Developing algorithms that contribute to safe navigation by autonomous and manned vessels is in the best interest of the Navy and the public. To support the development of such AI-driven navigational systems the Navy sponsored HACKtheMACHINE Seattle Track 2 to create collision avoidance training data from publicly available maritime shipping data.  Read the full challenge description [here](https://github.com/FATHOM5/Seattle_Track_2).
