@@ -474,55 +474,6 @@ func (b *Box) Match(rec *Record) (bool, error) {
 	return lat >= b.MinLat && lat <= b.Maxlat && lon >= b.MinLon && lon <= b.MaxLon, nil
 }
 
-// LimitMatching returns a pointer to RecordSet with the first n records that
-// equal the Match function. A negative number for n will return all matches in
-// the set.
-// func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error) {
-// 	rs2 := NewRecordSet()
-// 	rs2.SetHeaders(rs.Headers())
-
-// 	// Loop conditions:
-// 	recordsLeftToWrite := n
-// 	for recordsLeftToWrite != 0 {
-// 		var rec *Record
-// 		rec, err := rs.Read()
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		if err != nil {
-// 			return nil, fmt.Errorf("matching: read error on csv file: %v", err)
-// 		}
-
-// 		if match(rec) {
-// 			err := rs2.Write(*rec)
-// 			if err != nil {
-// 				return nil, fmt.Errorf("matching: csv write error: %v", err)
-// 			}
-// 			recordsLeftToWrite--
-// 			if recordsLeftToWrite%flushThreshold == 0 {
-// 				err := rs2.Flush()
-// 				if err != nil {
-// 					return nil, fmt.Errorf("matching: csv flush error: %v", err)
-// 				}
-// 			}
-// 		}
-// 	}
-// 	err := rs2.Flush()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("matching: csv flush error: %v", err)
-// 	}
-
-// 	return rs2, nil
-
-// }
-
-// Matching returns a pointer to a new *RecordSet and an error value.
-// The returned *RecordSet contains all of the records in rs that equal the
-// Match function.
-// func (rs *RecordSet) Matching(match Match) (*RecordSet, error) {
-// 	return rs.LimitMatching(match, -1)
-// }
-
 // Save writes the RecordSet to disk in the filename provided
 func (rs *RecordSet) Save(name string) error {
 	var err error
