@@ -1,5 +1,6 @@
 [![GoDoc Reference](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](http://godoc.org/github.com/FATHOM5/ais)
 [![Build Status](https://travis-ci.org/FATHOM5/ais.svg?branch=master)](https://travis-ci.org/FATHOM5/ais)
+[![Go Report Card](https://goreportcard.com/badge/github.com/FATHOM5/ais?style=flat-square)](https://goreportcard.com/report/github.com/FATHOM5/ais)
 <p align="center">
  <img src="images/HtM_150.png"> 
  <img src="images/install_screenshot.png">
