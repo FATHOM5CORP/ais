@@ -38,7 +38,7 @@ type ClusterMap map[uint64]*Cluster
 
 // FindClusters returns a ClusterMap that groups Records in the window
 // into common Clusters that share the same geohash.  It requires that
-// the RecordSet Window is operating on has a 'Geohash' field stored as
+// the RecordSet Window it is operating on has a 'Geohash' field stored as
 // a Uint64 with the proper prefix for the hash (i.e. 0x for hex representation).
 func (win *Window) FindClusters(geohashIndex int) ClusterMap {
 	cm := make(ClusterMap)

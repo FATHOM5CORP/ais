@@ -2,7 +2,9 @@
 *.zip
 
 # ignore .csv files which are generally too large for hosting on github
+# except the data needed for testing.
 *.csv
+!testdata/ten.csv
 
 # ignore files in the utilities/bin except the readme
 utilities/bin/*
