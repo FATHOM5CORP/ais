@@ -341,10 +341,10 @@ func TestNewHeaders(t *testing.T) {
 			args: args{
 				fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
 				defs: []Definition{
-					Definition{Fieldname: "MMSI", Description: "Unique vessel identifier"},
-					Definition{Fieldname: "LAT", Description: "Latitude of the position report"},
-					Definition{Fieldname: "LON", Description: "Longitude of the position report"},
-					Definition{Fieldname: "BaseDateTime", Description: "Timestamp of the position report"},
+					{Fieldname: "MMSI", Description: "Unique vessel identifier"},
+					{Fieldname: "LAT", Description: "Latitude of the position report"},
+					{Fieldname: "LON", Description: "Longitude of the position report"},
+					{Fieldname: "BaseDateTime", Description: "Timestamp of the position report"},
 				},
 			},
 			want: Headers{
