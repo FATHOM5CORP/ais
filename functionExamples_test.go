@@ -4,6 +4,7 @@ package ais_test
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/FATHOM5/ais"
 )
@@ -47,4 +48,47 @@ func ExampleRecord_ParseTime() {
 
 	// Output
 	// The record timestamp is at 2017-12-01T00:00:03
+}
+
+type subsetOneDay struct {
+	rs        *ais.RecordSet
+	d1        time.Time // date we want to match
+	timeIndex int       //index value of BaseDateTime in the record
+}
+
+func (sod *subsetOneDay) Match(rec *ais.Record) (bool, error) {
+	d2, err := time.Parse(ais.TimeLayout, (*rec)[sod.timeIndex])
+	if err != nil {
+		return false, fmt.Errorf("subsetOneDay: %v", err)
+	}
+	d2 = d2.Truncate(24 * time.Hour)
+	return sod.d1.Equal(d2), nil
+}
+
+func ExampleRecordSet_Subset() {
+	rs, _ := ais.OpenRecordSet("testdata/ten.csv")
+	defer rs.Close()
+
+	// Implement a concreate type of subsetOneDay to return records
+	// from 25 Dec 2017.
+	timeIndex, ok := rs.Headers().Contains("BaseDateTime")
+	if !ok {
+		panic("recordset does not contain the header BaseDateTime")
+	}
+	targetDate, _ := time.Parse("2006-01-02", "2017-12-25")
+	sod := &subsetOneDay{
+		rs:        rs,
+		d1:        targetDate,
+		timeIndex: timeIndex,
+	}
+
+	matches, _ := rs.Subset(sod)
+	//matches.Save("newSet.csv")
+	subsetRec, _ := matches.Read()
+	subsetDate := (*subsetRec)[timeIndex]
+	date, _ := time.Parse(ais.TimeLayout, subsetDate)
+	fmt.Printf("The first record in the subset has BaseDateTime %v\n", date.Format("2006-01-02"))
+
+	// Output:
+	// The first record in the subset has BaseDateTime 2017-12-25
 }

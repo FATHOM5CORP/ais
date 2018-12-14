@@ -1,7 +1,7 @@
 [![GoDoc Reference](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](http://godoc.org/github.com/FATHOM5/ais)
 [![Build Status](https://travis-ci.org/FATHOM5/ais.svg?branch=master)](https://travis-ci.org/FATHOM5/ais)
 [![Go Report Card](https://goreportcard.com/badge/github.com/FATHOM5/ais?style=flat-square)](https://goreportcard.com/report/github.com/FATHOM5/ais)
-[![Coverage Status](http://bit.ly/2UEaRBl)](https://coveralls.io/github/FATHOM5/ais?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/FATHOM5/ais/badge.svg?branch=master)](https://coveralls.io/github/FATHOM5/ais?branch=master)
 <p align="center">
  <img src="images/HtM_150.png"> 
  <img src="images/install_screenshot.png">
@@ -220,39 +220,65 @@ _ := rs.Save("newData.csv")
 Many more uses ways of dealing with `RecordSet` and `Record` objects follow in the more advanced uses of the package in the next few sections.
 
 ### Subsets
-The most common operation on multi-gigabyte files downloaded from [marinecadastre.gov](https://marinecadastre.gov/ais/) is to create subsets of about one million records.  The original datafiles are a one-month set covering a single UTM zone.  The natural subset is to break this into single-day files and then perform analysis on these one-day subsets.  To accomplish this operation the package provides the type `Match` and `RecordSet` provides two functions:
+The most common operation on multi-gigabyte files downloaded from [marinecadastre.gov](https://marinecadastre.gov/ais/) is to create subsets of about one million records.  The original datafiles are a one-month set covering a single UTM zone.  The natural subset is to break this into single-day files and then perform analysis on these one-day subsets.  To accomplish this operation the package provides the interface `Matching` and two functions provided by `RecordSet` that take arguments implementing the `Matching` interface in order to return a subset.
 
 ```
-type Match func(rec *Record) bool
+type Matching interface {
+    Match(*Record) (bool, error)
+}
 
-func (rs *RecordSet) LimitMatching(match Match, n int) (*RecordSet, error)
-func (rs *RecordSet) Matching(match Match) (*RecordSet, error)
+func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error)
+func (rs *RecordSet) Subset(m Matching) (*RecordSet, error)
 ```
-Package clients define an `ais.Match` function and pass this function as an argument to `rs.Matching`.  The returned `*RecordSet` contains only those lines from the original `RecordSet` that return true from the `Match` function.
+Package clients define a type that implements the `Matching` interface and then pass this type as an argument to `Subset` or `SubsetLimit`.  The returned `*RecordSet` contains only those lines from the original `RecordSet` that return true from the `Match` function of `m`.
 
 ```go 
-rs, _ := ais.OpenRecordSet("largeData.csv")
-defer rs.Close()
-
-// Define a Match function to return records from 25 Dec 2017
-var match ais.Match
-timeIndex, ok := rs.Headers().Contains("BaseDateTime")
-if !ok {
-    panic("recordset does not contain the header BaseDateTime")
-}
-targetDate, _  := time.Parse("2006-01-02", "2017-12-25")
-match = func(rec *ais.Record) bool {
-    recordDate, _ := time.Parse(ais.TimeLayout, (*rec)[timeIndex])
-    recordDate = recordDate.Truncate(24 * time.Hour)
-    return targetDate.Equal(recordDate)
+type subsetOneDay struct {
+	rs        *ais.RecordSet
+	d1        time.Time // date we want to match
+	timeIndex int       //index value of BaseDateTime in the record
 }
 
-matches, _ := rs.Matching(match)
-_ := matches.Save("dec25.csv")
+func (sod *subsetOneDay) Match(rec *ais.Record) (bool, error) {
+	d2, err := time.Parse(ais.TimeLayout, (*rec)[sod.timeIndex])
+	if err != nil {
+		return false, fmt.Errorf("subsetOneDay: %v", err)
+	}
+	d2 = d2.Truncate(24 * time.Hour)
+	return sod.d1.Equal(d2), nil
+}
+
+func main(){
+	rs, _ := ais.OpenRecordSet("largeData.csv")
+	defer rs.Close()
+
+	// Implement a concreate type of subsetOneDay to return records
+	// from 25 Dec 2017.
+	timeIndex, ok := rs.Headers().Contains("BaseDateTime")
+	if !ok {
+		panic("recordset does not contain the header BaseDateTime")
+	}
+	targetDate, _ := time.Parse("2006-01-02", "2017-12-25")
+	sod := &subsetOneDay{
+		rs:        rs,
+		d1:        targetDate,
+		timeIndex: timeIndex,
+	}
+
+	matches, _ := rs.Subset(sod)
+	//matches.Save("newSet.csv")
+	subsetRec, _ := matches.Read()
+	subsetDate := (*subsetRec)[timeIndex]
+	date, _ := time.Parse(ais.TimeLayout, subsetDate)
+	fmt.Printf("The first record in the subset has BaseDateTime %v\n", date.Format("2006-01-02"))
+
+	// Output:
+	// The first record in the subset has BaseDateTime 2017-12-25
+}
 ```
 This example introduces two additional features of the package.  First, the call to `rs.Headers().Contains(headerName)` is the idiomatic way to get the index value of a header used in a later fucntion call.  Always check the `ok` parameter of this return to ensure the `RecordSet` includes the necessary `Header` entry.  Second, the package includes the constant `TimeLayout = 2006-01-02T15:04:05` which represents the timestamp format in the Marinecadastre files and is designed to be passed to the `time.Parse` function as the layout string argument.
 
-During algorithm development it is sometimes desirable to create a `RecordSet` with only a few dozen or a few hundred data lines in order to avoid long computation times between successive iterations of the program.  Therefore, the package also provides `LimitMatching(match Match, n int)` where the resulting `*RecordSet` will only contain the first `n` matches.
+During algorithm development it is sometimes desirable to create a `RecordSet` with only a few dozen or a few hundred data lines in order to avoid long computation times between successive iterations of the program.  Therefore, the package also provides `SubsetLimit(m Matching, n int)` where the resulting `*RecordSet` will only contain the first `n` matches.
 
 ### Sorting
 The package uses the Go standard library `sort` capabilities for high performance sorting.  The most common operation is to sort a single day of data into chronological order by the `BaseDateTime` header.  This operation is implemented within the package and is exposed to users with a single call to `SortByTime()`.
