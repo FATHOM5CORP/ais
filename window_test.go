@@ -1,13 +1,30 @@
 package ais
 
 import (
+	"encoding/csv"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 )
 
+type errorReader struct{}
+
+func (errorReader) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("errorReader used for testing")
+}
+
 func TestNewWindow(t *testing.T) {
 	testSet, _ := OpenRecordSet("testdata/ten.csv")
+	defer testSet.Close()
+	badSet := &RecordSet{h: badHeaders}
+	badSet2 := &RecordSet{
+		h: goodHeaders,
+		r: csv.NewReader(&errorReader{}),
+	}
+	badSet3, _ := OpenRecordSet("testdata/bad.csv")
+	defer badSet3.Close()
+
 	type args struct {
 		rs    *RecordSet
 		width time.Duration
@@ -26,6 +43,33 @@ func TestNewWindow(t *testing.T) {
 			},
 			want:    &testWindow,
 			wantErr: false,
+		},
+		{
+			name: "bad headers should trigger error",
+			args: args{
+				rs:    badSet,
+				width: 5 * time.Second,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "readFirst error",
+			args: args{
+				rs:    badSet2,
+				width: 5 * time.Second,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "time parse error",
+			args: args{
+				rs:    badSet3,
+				width: 5 * time.Second,
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -91,6 +135,27 @@ func TestWindow_SetLeft(t *testing.T) {
 			got := win.Left()
 			if got != tt.want {
 				t.Errorf("Window.SetLeft() where Left()= %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWindow_Right(t *testing.T) {
+	tests := []struct {
+		name string
+		win  *Window
+		want time.Time
+	}{
+		{
+			name: "test window right",
+			win:  &testWindow,
+			want: time.Date(2017, time.December, 1, 00, 00, 06, 0, time.UTC),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.win.Right(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Window.Right() = %v, want %v", got, tt.want)
 			}
 		})
 	}
