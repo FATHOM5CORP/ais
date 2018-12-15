@@ -46,7 +46,7 @@ func ExampleRecord_ParseTime() {
 	}
 	fmt.Printf("The record timestamp is at %s\n", t.Format(ais.TimeLayout))
 
-	// Output
+	// Output:
 	// The record timestamp is at 2017-12-01T00:00:03
 }
 

@@ -160,3 +160,32 @@ func TestWindow_Right(t *testing.T) {
 		})
 	}
 }
+
+func TestWindow_AddRecord(t *testing.T) {
+
+	type args struct {
+		rec Record
+	}
+	tests := []struct {
+		name string
+		win  *Window
+		args args
+		want int
+	}{
+		{
+			name: "add to empty window",
+			win:  &testWindow,
+			args: args{testRec0},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.win.AddRecord(tt.args.rec)
+			got := len(tt.win.Data)
+			if got != tt.want {
+				t.Errorf("Window.AddRecord() error: got len=%v, want len=%v", got, tt.want)
+			}
+		})
+	}
+}
