@@ -6,6 +6,7 @@
 *.csv
 !testdata/ten.csv
 !testdata/bad.csv
+!testdata/empty.csv
 
 # ignore files in the utilities/bin except the readme
 utilities/bin/*

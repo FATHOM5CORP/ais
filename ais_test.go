@@ -6,6 +6,8 @@
 package ais
 
 import (
+	"encoding/csv"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -442,6 +444,194 @@ func TestBox_Match(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("Box.Match() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenRecordSet(t *testing.T) {
+
+	tests := []struct {
+		name     string
+		filename string
+		want     *RecordSet
+		wantErr  bool
+	}{
+		{
+			name:     "bad filename",
+			filename: "doesNotExist.csv",
+			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "empty file is unreadable",
+			filename: "testdata/empty.csv",
+			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "invalid headers",
+			filename: "testdata/badHeaders.csv",
+			want:     nil,
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := OpenRecordSet(tt.filename)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("OpenRecordSet() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("OpenRecordSet() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRecordSet_readFirst(t *testing.T) {
+	type fields struct {
+		r     *csv.Reader
+		w     *csv.Writer
+		h     Headers
+		data  io.ReadWriter
+		first *Record
+		stash *Record
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    *Record
+		wantErr bool
+	}{
+		{
+			name: "readFirst test",
+			fields: fields{
+				r:     nil,
+				w:     nil,
+				h:     goodHeaders,
+				data:  nil,
+				first: &testRec0,
+				stash: nil,
+			},
+			want:    &testRec0,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs := &RecordSet{
+				r:     tt.fields.r,
+				w:     tt.fields.w,
+				h:     tt.fields.h,
+				data:  tt.fields.data,
+				first: tt.fields.first,
+				stash: tt.fields.stash,
+			}
+			got, err := rs.readFirst()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecordSet.readFirst() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.readFirst() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRecordSet_Stash(t *testing.T) {
+
+	rs, _ := OpenRecordSet("testdata/ten.csv")
+	type args struct {
+		rec *Record
+	}
+	tests := []struct {
+		name string
+		rs   *RecordSet
+		args args
+		want *Record
+	}{
+		{
+			name: "stash and then read",
+			rs:   rs,
+			args: args{
+				rec: &testRec0,
+			},
+			want: &testRec0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs.Stash(tt.args.rec)
+			got, _ := rs.Read()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.Stash() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRecordSet_Read(t *testing.T) {
+	type fields struct {
+		r     *csv.Reader
+		w     *csv.Writer
+		h     Headers
+		data  io.ReadWriter
+		first *Record
+		stash *Record
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    *Record
+		wantErr bool
+	}{
+		{
+			name: "first is set",
+			fields: fields{
+				r:     nil,
+				w:     nil,
+				h:     goodHeaders,
+				data:  nil,
+				first: &testRec0,
+				stash: nil,
+			},
+			want:    &testRec0,
+			wantErr: false,
+		},
+		{
+			name: "reader returns an error",
+			fields: fields{
+				r:     csv.NewReader(errorReader{}),
+				w:     nil,
+				h:     goodHeaders,
+				data:  nil,
+				first: nil,
+				stash: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs := &RecordSet{
+				r:     tt.fields.r,
+				w:     tt.fields.w,
+				h:     tt.fields.h,
+				data:  tt.fields.data,
+				first: tt.fields.first,
+				stash: tt.fields.stash,
+			}
+			got, err := rs.Read()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecordSet.Read() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.Read() = %v, want %v", got, tt.want)
 			}
 		})
 	}

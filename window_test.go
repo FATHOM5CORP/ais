@@ -2,17 +2,10 @@ package ais
 
 import (
 	"encoding/csv"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
 )
-
-type errorReader struct{}
-
-func (errorReader) Read(p []byte) (n int, err error) {
-	return 0, fmt.Errorf("errorReader used for testing")
-}
 
 func TestNewWindow(t *testing.T) {
 	testSet, _ := OpenRecordSet("testdata/ten.csv")
@@ -22,7 +15,7 @@ func TestNewWindow(t *testing.T) {
 		h: goodHeaders,
 		r: csv.NewReader(&errorReader{}),
 	}
-	badSet3, _ := OpenRecordSet("testdata/bad.csv")
+	badSet3, _ := OpenRecordSet("testdata/badData.csv")
 	defer badSet3.Close()
 
 	type args struct {

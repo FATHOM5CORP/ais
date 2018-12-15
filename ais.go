@@ -177,7 +177,7 @@ func OpenRecordSet(filename string) (*RecordSet, error) {
 		return nil, fmt.Errorf("open recordset: %v", err)
 	}
 	if !h.Valid() {
-		return nil, fmt.Errorf("open recordset: headers not valid")
+		return nil, fmt.Errorf("open recordset: %s has invalid headers", filename)
 	}
 	rs.h = h
 

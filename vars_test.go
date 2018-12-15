@@ -1,6 +1,7 @@
 package ais
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -30,4 +31,10 @@ var badHeaders = Headers{ // Missing canonical name BaseDateTime
 var goodHeaders = Headers{
 	fields: strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,"+
 		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
+}
+
+type errorReader struct{}
+
+func (errorReader) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("errorReader used for testing")
 }
