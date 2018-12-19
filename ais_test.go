@@ -96,91 +96,91 @@ func getTime(s string) time.Time {
 	return t
 }
 
-func TestRecord_Parse(t *testing.T) {
-	tests := []struct {
-		name    string
-		r       Record
-		h       Headers
-		want    Report
-		wantErr bool
-	}{
-		{
-			name: "Simple",
-			r:    Record{"376494000", "2017-12-01T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
-			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
-			},
-			want:    Report{376494000, 30.28963, -116.73522, getTime("2017-12-01T00:00:03"), []interface{}{}},
-			wantErr: false,
-		},
-		{
-			name: "incomplete headers: no mmsi",
-			r:    Record{"376494000", "2017-12-01T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
-			h: Headers{
-				fields:     []string{"BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
-			},
-			want:    Report{},
-			wantErr: true,
-		},
-		{
-			name: "unparsable mmsi",
-			r:    Record{"376abc123", "2017-12-01T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
-			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
-			},
-			want:    Report{},
-			wantErr: true,
-		},
-		{
-			name: "unparsable time",
-			r:    Record{"376494000", "12-01-2017T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
-			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
-			},
-			want:    Report{},
-			wantErr: true,
-		},
-		{
-			name: "unparsable Lat",
-			r:    Record{"376494000", "2017-12-01T00:00:03", "3x.28963", "-116.73522", "9.4", "158.2", "511.0"},
-			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
-			},
-			want:    Report{},
-			wantErr: true,
-		},
-		{
-			name: "unparsable Lon",
-			r:    Record{"376494000", "2017-12-01T00:00:03", "30.28963", "-1x6.73522", "9.4", "158.2", "511.0"},
-			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
-			},
-			want:    Report{},
-			wantErr: true,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := test.r.Parse(test.h)
-			// reflect.DeepEqual fails without the next statement because the address pointer for the
-			// two arrays must be the same, they cannot just be empty slices of interface{}.
-			got.data = test.want.data
-			if (err != nil) != test.wantErr {
-				t.Errorf("Record.Parse() error = %v, wantErr %v", err, test.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("Record.Parse() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
+// func TestRecord_Parse(t *testing.T) {
+// 	tests := []struct {
+// 		name    string
+// 		r       Record
+// 		h       Headers
+// 		want    Report
+// 		wantErr bool
+// 	}{
+// 		{
+// 			name: "Simple",
+// 			r:    Record{"376494000", "2017-12-01T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
+// 			h: Headers{
+// 				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
+// 				dictionary: nil,
+// 			},
+// 			want:    Report{376494000, 30.28963, -116.73522, getTime("2017-12-01T00:00:03"), []interface{}{}},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name: "incomplete headers: no mmsi",
+// 			r:    Record{"376494000", "2017-12-01T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
+// 			h: Headers{
+// 				fields:     []string{"BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
+// 				dictionary: nil,
+// 			},
+// 			want:    Report{},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name: "unparsable mmsi",
+// 			r:    Record{"376abc123", "2017-12-01T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
+// 			h: Headers{
+// 				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
+// 				dictionary: nil,
+// 			},
+// 			want:    Report{},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name: "unparsable time",
+// 			r:    Record{"376494000", "12-01-2017T00:00:03", "30.28963", "-116.73522", "9.4", "158.2", "511.0"},
+// 			h: Headers{
+// 				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
+// 				dictionary: nil,
+// 			},
+// 			want:    Report{},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name: "unparsable Lat",
+// 			r:    Record{"376494000", "2017-12-01T00:00:03", "3x.28963", "-116.73522", "9.4", "158.2", "511.0"},
+// 			h: Headers{
+// 				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
+// 				dictionary: nil,
+// 			},
+// 			want:    Report{},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name: "unparsable Lon",
+// 			r:    Record{"376494000", "2017-12-01T00:00:03", "30.28963", "-1x6.73522", "9.4", "158.2", "511.0"},
+// 			h: Headers{
+// 				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
+// 				dictionary: nil,
+// 			},
+// 			want:    Report{},
+// 			wantErr: true,
+// 		},
+// 	}
+// 	for _, test := range tests {
+// 		t.Run(test.name, func(t *testing.T) {
+// 			got, err := test.r.Parse(test.h)
+// 			// reflect.DeepEqual fails without the next statement because the address pointer for the
+// 			// two arrays must be the same, they cannot just be empty slices of interface{}.
+// 			got.data = test.want.data
+// 			if (err != nil) != test.wantErr {
+// 				t.Errorf("Record.Parse() error = %v, wantErr %v", err, test.wantErr)
+// 				return
+// 			}
+// 			if !reflect.DeepEqual(got, test.want) {
+// 				t.Errorf("Record.Parse() = %v, want %v", got, test.want)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestHeaders_Contains(t *testing.T) {
 	type args struct {
