@@ -849,42 +849,42 @@ func (r Record) ParseTime(index int) (time.Time, error) {
 // STRUCT AND FIND THE REQUIRED FIELDS, NOT RELY ON THE HARDCODED VERSION
 // PRESENTED IN THE FIRST FEW LINES OF THIS FUNCTION WHERE I HAVE A
 // MINIMALLY VIABLE IMPLEMENTATION.
-func (r Record) Parse(h Headers) (Report, error) {
-	requiredFields := []string{"MMSI", "BaseDateTime", "LAT", "LON"}
-	fields := make(map[string]int)
+// func (r Record) Parse(h Headers) (Report, error) {
+// 	requiredFields := []string{"MMSI", "BaseDateTime", "LAT", "LON"}
+// 	fields := make(map[string]int)
 
-	for _, field := range requiredFields {
-		j, ok := h.Contains(field)
-		if !ok {
-			return Report{}, fmt.Errorf("record parse: passed headers does not contain required field %s", field)
-		}
-		fields[field] = j
-	}
-	mmsi, err := r.ParseInt(fields["MMSI"])
-	if err != nil {
-		return Report{}, fmt.Errorf("record parse: unable to parse MMSI: %s", err)
-	}
-	t, err := r.ParseTime(fields["BaseDateTime"])
-	if err != nil {
-		return Report{}, fmt.Errorf("record parse: unable to parse BaseDateTime: %s", err)
-	}
-	lat, err := r.ParseFloat(fields["LAT"])
-	if err != nil {
-		return Report{}, fmt.Errorf("record parse: unable to parse LAT: %s", err)
-	}
-	lon, err := r.ParseFloat(fields["LON"])
-	if err != nil {
-		return Report{}, fmt.Errorf("record parse: unable to parse LON: %s", err)
-	}
+// 	for _, field := range requiredFields {
+// 		j, ok := h.Contains(field)
+// 		if !ok {
+// 			return Report{}, fmt.Errorf("record parse: passed headers does not contain required field %s", field)
+// 		}
+// 		fields[field] = j
+// 	}
+// 	mmsi, err := r.ParseInt(fields["MMSI"])
+// 	if err != nil {
+// 		return Report{}, fmt.Errorf("record parse: unable to parse MMSI: %s", err)
+// 	}
+// 	t, err := r.ParseTime(fields["BaseDateTime"])
+// 	if err != nil {
+// 		return Report{}, fmt.Errorf("record parse: unable to parse BaseDateTime: %s", err)
+// 	}
+// 	lat, err := r.ParseFloat(fields["LAT"])
+// 	if err != nil {
+// 		return Report{}, fmt.Errorf("record parse: unable to parse LAT: %s", err)
+// 	}
+// 	lon, err := r.ParseFloat(fields["LON"])
+// 	if err != nil {
+// 		return Report{}, fmt.Errorf("record parse: unable to parse LON: %s", err)
+// 	}
 
-	return Report{
-		MMSI:      mmsi,
-		Lat:       lat,
-		Lon:       lon,
-		Timestamp: t,
-	}, nil
+// 	return Report{
+// 		MMSI:      mmsi,
+// 		Lat:       lat,
+// 		Lon:       lon,
+// 		Timestamp: t,
+// 	}, nil
 
-}
+// }
 
 // Report is the converted string data from an ais.Record into a series
 // of typed values suitable for data analytics.
