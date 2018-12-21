@@ -734,3 +734,43 @@ func TestRecordSet_SubsetLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestRecordSet_Track_ErrEmptyTrack(t *testing.T) {
+	type args struct {
+		mmsi  int64
+		start time.Time
+		dur   time.Duration
+	}
+	tests := []struct {
+		name     string
+		filename string
+		args     args
+		want     *RecordSet
+		wantErr  error
+	}{
+		{
+			name:     "empty recordset due to mmsi",
+			filename: "testdata/ten.csv",
+			args: args{
+				mmsi:  477307905, // mmsi not in ten.csv
+				start: Beginning,
+				dur:   All,
+			},
+			want:    nil,
+			wantErr: ErrEmptyTrack,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs, _ := OpenRecordSet(tt.filename)
+			got, err := rs.Track(tt.args.mmsi, tt.args.start, tt.args.dur)
+			if (err != nil) && err != tt.wantErr {
+				t.Errorf("RecordSet.Track() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.Track() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

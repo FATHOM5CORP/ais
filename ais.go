@@ -37,6 +37,25 @@ const TimeLayout = `2006-01-02T15:04:05`
 // will write to memory before being flushed.
 const flushThreshold = 250000
 
+// ErrEmptyTrack is the error returned by RecordSet.Track when there are
+// no records in the returned *RecordSet because nothing matched the selection
+// criteria for creating the Track. Functions should only return EmptyTrack when
+// all processing occurred successfully, but the subset criteria provided no
+// matches to return.
+var ErrEmptyTrack = errors.New("ErrEmptyTrack")
+
+// Beginning provides a time well prior to the discovery of electricity
+// as a convenience time to enter as the `start` time in functions like
+// RecordSet.Track.  It is highly unlikely that any ais RecordSet will include
+// data before this time and therefore start==Beginning will ensure that all
+// records from the beginning of the RecordSet are examined for matches.
+var Beginning = time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// All provides a duration from Beginning until ten minutes into the future.
+// Using dur==All in RecordSet.Track ensures that all records in the set are
+// examined for matches.
+var All = time.Now().Add(10 * time.Minute).Sub(Beginning)
+
 // Definition is the struct format that JSON dictionary files are
 // loaded into with ais.RecordSet.SetDictionary(blob []byte).
 type Definition struct {
@@ -436,6 +455,20 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 // Returns nil for the *RecordSet when error is non-nil.
 func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
 	return rs.SubsetLimit(m, -1)
+}
+
+// Track returns a *RecordSet that contains a collection of ais.Record that are
+// sequential in time and belong to the same MMSI.  Arguments to the function are the
+// MMSI of the desired vessel, the start time to begin building the Track and the
+// duration for the amount of time the Track should cover.
+//
+// In addition to normal errors returned when the function cannot successfully execute,
+// the returned error also includes a semephore built in the same implementation of io.EOF
+// so that clients of the Track function can test for an empty RecordSet.  This error
+// returns true from the comparison err == ais.ErrEmptyTrack.
+func (rs *RecordSet) Track(mmsi int64, start time.Time, dur time.Duration) (*RecordSet, error) {
+
+	return nil, ErrEmptyTrack
 }
 
 // Matching provides an interface to pass into the Subset and LimitSubset functions
