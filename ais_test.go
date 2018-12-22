@@ -7,6 +7,8 @@ package ais
 
 import (
 	"encoding/csv"
+	"fmt"
+	"hash/fnv"
 	"io"
 	"reflect"
 	"strings"
@@ -735,7 +737,25 @@ func TestRecordSet_SubsetLimit(t *testing.T) {
 	}
 }
 
-func TestRecordSet_Track_ErrEmptyTrack(t *testing.T) {
+func localHash(fields []string) uint64 {
+	h64 := fnv.New64a()
+	for _, f := range fields {
+		_, err := h64.Write([]byte(f))
+		if err != nil {
+			msg := fmt.Sprintf("test setup error: %v", err)
+			panic(msg)
+		}
+	}
+	return h64.Sum64()
+}
+
+func TestRecordSet_Track(t *testing.T) {
+	// Designing tests for a RecordSet are non trivial.  After some amount of
+	// consideration the best approach seemed to be testing for a slice of
+	// hashes.  This will allow determining if the returned recordset contains
+	// the right number of records and with some external calculation also ensure
+	// that the right data was returned from a testdata .csv file.
+
 	type args struct {
 		mmsi  int64
 		start time.Time
@@ -745,9 +765,34 @@ func TestRecordSet_Track_ErrEmptyTrack(t *testing.T) {
 		name     string
 		filename string
 		args     args
-		want     *RecordSet
+		recs     [][]string
+		want     []uint64 //hash values of each Record in the set
 		wantErr  error
 	}{
+		{
+			name:     "one record from ten.csv",
+			filename: "testdata/ten.csv",
+			args: args{
+				mmsi:  477307901, // corresponds to the vessel FIRST
+				start: Beginning,
+				dur:   All,
+			},
+			recs:    [][]string{firstRec},
+			want:    []uint64{localHash(firstRec)},
+			wantErr: nil,
+		},
+		{
+			name:     "three records from track.csv",
+			filename: "testdata/track.csv",
+			args: args{
+				mmsi:  477307901, // corresponds to the vessel FIRST
+				start: Beginning,
+				dur:   All,
+			},
+			recs:    [][]string{track1, track2, track3},
+			want:    []uint64{localHash(track1), localHash(track2), localHash(track3)},
+			wantErr: nil,
+		},
 		{
 			name:     "empty recordset due to mmsi",
 			filename: "testdata/ten.csv",
@@ -756,20 +801,44 @@ func TestRecordSet_Track_ErrEmptyTrack(t *testing.T) {
 				start: Beginning,
 				dur:   All,
 			},
-			want:    nil,
-			wantErr: ErrEmptyTrack,
+			want:    []uint64{},
+			wantErr: ErrEmptySet,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rs, _ := OpenRecordSet(tt.filename)
+			rs, err := OpenRecordSet(tt.filename)
+			if err != nil {
+				t.Errorf("test setup error: %v", err)
+				return
+			}
 			got, err := rs.Track(tt.args.mmsi, tt.args.start, tt.args.dur)
 			if (err != nil) && err != tt.wantErr {
 				t.Errorf("RecordSet.Track() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RecordSet.Track() = %v, want %v", got, tt.want)
+			if err != nil {
+				// Only try and read from the RecordSet if err==nil
+				return
+			}
+
+			// Convert the returned recordset into a slice of hash values for each record
+			var hashes = []uint64{}
+			for {
+				rec, err := got.Read()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					t.Errorf("test setup error: %v", err)
+					return
+				}
+
+				hash := rec.Hash()
+				hashes = append(hashes, hash)
+			}
+			if !reflect.DeepEqual(hashes, tt.want) {
+				t.Errorf("RecordSet.Read() = %v, want %v", hashes, tt.want)
 			}
 		})
 	}
