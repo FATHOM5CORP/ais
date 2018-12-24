@@ -636,3 +636,101 @@ func TestRecordSet_Read(t *testing.T) {
 		})
 	}
 }
+
+func TestRecordSet_SubsetLimit(t *testing.T) {
+	type fields struct {
+		r     *csv.Reader
+		w     *csv.Writer
+		h     Headers
+		data  io.ReadWriter
+		first *Record
+		stash *Record
+	}
+	type args struct {
+		m Matching
+		n int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []uint64 // slice of Record.Hash()
+		wantErr bool
+	}{
+		{
+			name: "bad recordset read",
+			fields: fields{
+				r:     csv.NewReader(errorReader{}),
+				w:     nil,
+				h:     goodHeaders,
+				data:  nil,
+				first: nil,
+				stash: nil,
+			},
+			args: args{
+				m: &Box{
+					MinLat: 0, Maxlat: 40, MinLon: -90, MaxLon: -70,
+					LatIndex: 2, LonIndex: 3,
+				},
+				n: -1,
+			},
+			want:    []uint64{},
+			wantErr: true,
+		},
+		{
+			name: "bad matching function",
+			fields: fields{
+				r:     csv.NewReader(newTestReader()),
+				w:     nil,
+				h:     goodHeaders,
+				data:  nil,
+				first: nil,
+				stash: nil,
+			},
+			args: args{
+				m: &errorMatcher{},
+				n: -1,
+			},
+			want:    []uint64{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs := &RecordSet{
+				r:     tt.fields.r,
+				w:     tt.fields.w,
+				h:     tt.fields.h,
+				data:  tt.fields.data,
+				first: tt.fields.first,
+				stash: tt.fields.stash,
+			}
+			got, err := rs.SubsetLimit(tt.args.m, tt.args.n)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecordSet.SubsetLimit() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			// Do not compare want if there is an error
+			if err != nil {
+				return
+			}
+
+			// Read the returned records into a slice of hashes
+			hashes := []uint64{}
+			for {
+				rec, err := got.Read()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					t.Errorf("test setup error: %v", err)
+				}
+				hash := rec.Hash()
+				hashes = append(hashes, hash)
+			}
+			if !reflect.DeepEqual(hashes, tt.want) {
+				t.Errorf("RecordSet.SubsetLimit() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

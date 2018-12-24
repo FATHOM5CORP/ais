@@ -1,6 +1,7 @@
 package ais
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -37,4 +38,41 @@ type errorReader struct{}
 
 func (errorReader) Read(p []byte) (n int, err error) {
 	return 0, fmt.Errorf("errorReader used for testing")
+}
+
+type errorWriter struct{}
+
+func (errorWriter) Write(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("errorWriter used for testing")
+}
+
+type testReader struct {
+	buf  bytes.Buffer
+	data string
+}
+
+func newTestReader() *testReader {
+	tr := testReader{
+		buf:  bytes.Buffer{},
+		data: "376494000, 2017-12-01T00:00:00, 30.28963, -110.73522, 9.4, 158.2, 511.0\n",
+	}
+
+	return &tr
+}
+
+func (tr testReader) Read(p []byte) (n int, err error) {
+	tr.buf.WriteString(tr.data)
+	return tr.buf.Read(p)
+}
+
+type errorMatcher struct{}
+
+func (*errorMatcher) Match(*Record) (bool, error) {
+	return false, fmt.Errorf("errorMatcher used for testing")
+}
+
+type trueMatcher struct{}
+
+func (*trueMatcher) Match(*Record) (bool, error) {
+	return true, nil
 }

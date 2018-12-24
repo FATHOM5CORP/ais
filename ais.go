@@ -387,6 +387,7 @@ func (rs *RecordSet) SetDictionary(blob []byte) error {
 // return true from calls to Match(*Record) (bool, error) on the provided argument m
 // that implements the Matching interface.
 // Returns nil for the *RecordSet when error is non-nil.
+// For n values less than zero, SubsetLimit will return all matches in the set.
 func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
@@ -423,7 +424,7 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 	}
 	err := rs2.Flush()
 	if err != nil {
-		return nil, fmt.Errorf("matching: csv flush error: %v", err)
+		return nil, fmt.Errorf("subset: csv flush error: %v", err)
 	}
 
 	return rs2, nil
