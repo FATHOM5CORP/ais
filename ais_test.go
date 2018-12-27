@@ -762,12 +762,12 @@ func TestRecordSet_Track(t *testing.T) {
 		dur   time.Duration
 	}
 	tests := []struct {
-		name     string
-		filename string
-		args     args
-		recs     [][]string
-		want     []uint64 //hash values of each Record in the set
-		wantErr  error
+		name             string
+		filename         string
+		args             args
+		recs             [][]string
+		want             []uint64 //hash values of each Record in the set
+		wantErrSubstring string
 	}{
 		{
 			name:     "one record from ten.csv",
@@ -777,9 +777,9 @@ func TestRecordSet_Track(t *testing.T) {
 				start: Beginning,
 				dur:   All,
 			},
-			recs:    [][]string{firstRec},
-			want:    []uint64{localHash(firstRec)},
-			wantErr: nil,
+			recs:             [][]string{firstRec},
+			want:             []uint64{localHash(firstRec)},
+			wantErrSubstring: "",
 		},
 		{
 			name:     "three records from track.csv",
@@ -789,9 +789,9 @@ func TestRecordSet_Track(t *testing.T) {
 				start: Beginning,
 				dur:   All,
 			},
-			recs:    [][]string{track1, track2, track3},
-			want:    []uint64{localHash(track1), localHash(track2), localHash(track3)},
-			wantErr: nil,
+			recs:             [][]string{track1, track2, track3},
+			want:             []uint64{localHash(track1), localHash(track2), localHash(track3)},
+			wantErrSubstring: "",
 		},
 		{
 			name:     "empty recordset due to mmsi",
@@ -801,8 +801,30 @@ func TestRecordSet_Track(t *testing.T) {
 				start: Beginning,
 				dur:   All,
 			},
-			want:    []uint64{},
-			wantErr: ErrEmptySet,
+			want:             []uint64{},
+			wantErrSubstring: "ErrEmptySet",
+		},
+		{
+			name:     "error due to bad time parse",
+			filename: "testdata/badTimeData.csv",
+			args: args{
+				mmsi:  477307901, // corresponds to the vessel FIRST
+				start: Beginning,
+				dur:   All,
+			},
+			want:             []uint64{},
+			wantErrSubstring: "cannot parse",
+		},
+		{
+			name:     "error due to bad MMSI parse",
+			filename: "testdata/badMMSIData.csv",
+			args: args{
+				mmsi:  477307901, // corresponds to the vessel FIRST
+				start: Beginning,
+				dur:   All,
+			},
+			want:             []uint64{},
+			wantErrSubstring: "invalid syntax",
 		},
 	}
 	for _, tt := range tests {
@@ -813,8 +835,8 @@ func TestRecordSet_Track(t *testing.T) {
 				return
 			}
 			got, err := rs.Track(tt.args.mmsi, tt.args.start, tt.args.dur)
-			if (err != nil) && err != tt.wantErr {
-				t.Errorf("RecordSet.Track() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) && !strings.Contains(err.Error(), tt.wantErrSubstring) {
+				t.Errorf("RecordSet.Track() error = %v, wantErrSubstring %v", err, tt.wantErrSubstring)
 				return
 			}
 			if err != nil {
@@ -839,6 +861,140 @@ func TestRecordSet_Track(t *testing.T) {
 			}
 			if !reflect.DeepEqual(hashes, tt.want) {
 				t.Errorf("RecordSet.Read() = %v, want %v", hashes, tt.want)
+			}
+		})
+	}
+}
+
+func TestRecordSet_Track_Continued(t *testing.T) {
+	// Designing tests for a RecordSet are non trivial.  After some amount of
+	// consideration the best approach seemed to be testing for a slice of
+	// hashes.  This will allow determining if the returned recordset contains
+	// the right number of records and with some external calculation also ensure
+	// that the right data was returned from a testdata .csv file.
+
+	type fields struct {
+		r     *csv.Reader
+		w     *csv.Writer
+		h     Headers
+		data  io.ReadWriter
+		first *Record
+		stash *Record
+	}
+	type args struct {
+		mmsi  int64
+		start time.Time
+		dur   time.Duration
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []uint64 // slice of Record.Hash()
+		wantErr bool
+	}{
+		{
+			name: "bad RecordSet has no MMSI in headers",
+			fields: fields{
+				r:     nil,
+				w:     nil,
+				h:     badHeaders2,
+				data:  nil,
+				first: nil,
+				stash: nil,
+			},
+			args: args{
+				mmsi: 477307901, start: Beginning, dur: All,
+			},
+			want:    []uint64{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs := &RecordSet{
+				r:     tt.fields.r,
+				w:     tt.fields.w,
+				h:     tt.fields.h,
+				data:  tt.fields.data,
+				first: tt.fields.first,
+				stash: tt.fields.stash,
+			}
+			got, err := rs.Track(tt.args.mmsi, tt.args.start, tt.args.dur)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecordSet.Track() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			// Do not compare want if there is an error
+			if err != nil {
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.Track() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_newSubsetByTrack(t *testing.T) {
+	type args struct {
+		rs    *RecordSet
+		mmsi  int64
+		start time.Time
+		dur   time.Duration
+	}
+	tests := []struct {
+		name             string
+		args             args
+		want             *subsetByTrack
+		wantErrSubstring string
+	}{
+		{
+			name: "recordset with no MMSI header",
+			args: args{
+				rs: &RecordSet{
+					r:     nil,
+					w:     nil,
+					h:     badHeaders2,
+					data:  nil,
+					first: nil,
+					stash: nil,
+				},
+				mmsi:  477307901, // corresponds to the vessel FIRST
+				start: Beginning,
+				dur:   All,
+			},
+			want:             nil,
+			wantErrSubstring: "missing header MMSI",
+		},
+		{
+			name: "recordset with no BaseDateTime header",
+			args: args{
+				rs: &RecordSet{
+					r:     nil,
+					w:     nil,
+					h:     badHeaders,
+					data:  nil,
+					first: nil,
+					stash: nil,
+				},
+				mmsi:  477307901, // corresponds to the vessel FIRST
+				start: Beginning,
+				dur:   All,
+			},
+			want:             nil,
+			wantErrSubstring: "missing header BaseDateTime",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := newSubsetByTrack(tt.args.rs, tt.args.mmsi, tt.args.start, tt.args.dur)
+			if (err != nil) && !strings.Contains(err.Error(), tt.wantErrSubstring) {
+				t.Errorf("newSubsetByTrack() error = %v, wantErrSubstring %v", err, tt.wantErrSubstring)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("newSubsetByTrack() = %v, want %v", got, tt.want)
 			}
 		})
 	}

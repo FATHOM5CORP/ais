@@ -36,6 +36,10 @@ var badHeaders = Headers{ // Missing canonical name BaseDateTime
 	fields: strings.Split("MMSI,Timestamp,LAT,LON,SOG,COG,Heading,"+
 		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
 }
+var badHeaders2 = Headers{ // Missing canonical name MMSI
+	fields: strings.Split("BaseDateTime,LAT,LON,SOG,COG,Heading,"+
+		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
+}
 
 var goodHeaders = Headers{
 	fields: strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,"+

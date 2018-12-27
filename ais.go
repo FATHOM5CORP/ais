@@ -468,28 +468,44 @@ func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
 
 // SubsetByTrack is used within the Track function perform create a concrete Subset
 type subsetByTrack struct {
-	rs *RecordSet
-	m  int64
-	s  time.Time
-	d  time.Duration
+	rs             *RecordSet
+	m              int64
+	s              time.Time
+	d              time.Duration
+	mmsiIndex      int
+	timestampIndex int
+}
+
+// NewSubsetByTrack creates a new sbt structure and checks to ensure that the required
+// headers are present before construction.
+func newSubsetByTrack(rs *RecordSet, mmsi int64, start time.Time, dur time.Duration) (*subsetByTrack, error) {
+	sbt := subsetByTrack{
+		rs: rs,
+		m:  mmsi,
+		s:  start,
+		d:  dur,
+	}
+
+	var ok bool
+	sbt.mmsiIndex, ok = sbt.rs.Headers().Contains("MMSI")
+	if !ok {
+		return nil, fmt.Errorf("subsetByTrack: missing header MMSI")
+	}
+	sbt.timestampIndex, ok = sbt.rs.Headers().Contains("BaseDateTime")
+	if !ok {
+		return nil, fmt.Errorf("subsetByTrack: missing header BaseDateTime")
+	}
+
+	return &sbt, nil
 }
 
 // Match implements the Matching interface for subsetByType
 func (sbt subsetByTrack) Match(rec *Record) (bool, error) {
-	mmsiIndex, ok := sbt.rs.Headers().Contains("MMSI")
-	if !ok {
-		return false, fmt.Errorf("subsetByTrack: missing heading MMSI")
-	}
-	timestampIndex, ok := sbt.rs.Headers().Contains("BaseDateTime")
-	if !ok {
-		return false, fmt.Errorf("subsetByTrack: missing header BaseDateTime")
-	}
-
-	mmsi, err := rec.ParseInt(mmsiIndex)
+	mmsi, err := rec.ParseInt(sbt.mmsiIndex)
 	if err != nil {
 		return false, fmt.Errorf("subsetByTrack: %v", err)
 	}
-	t, err := rec.ParseTime(timestampIndex)
+	t, err := rec.ParseTime(sbt.timestampIndex)
 	if err != nil {
 		return false, fmt.Errorf("subsetByTrack: %v", err)
 	}
@@ -517,14 +533,12 @@ func (sbt subsetByTrack) Match(rec *Record) (bool, error) {
 // so that clients of the Track function can test for an empty RecordSet.  This error
 // returns true from the comparison err == ais.ErrEmptyTrack.
 func (rs *RecordSet) Track(mmsi int64, start time.Time, dur time.Duration) (*RecordSet, error) {
-	sbt := subsetByTrack{
-		rs: rs,
-		m:  mmsi,
-		s:  start,
-		d:  dur,
+	sbt, err := newSubsetByTrack(rs, mmsi, start, dur)
+	if err != nil {
+		return nil, err
 	}
 
-	rs2, err := rs.Subset(&sbt)
+	rs2, err := rs.Subset(sbt)
 	if err == ErrEmptySet {
 		return nil, err
 	}
