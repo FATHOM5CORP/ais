@@ -37,6 +37,31 @@ const TimeLayout = `2006-01-02T15:04:05`
 // will write to memory before being flushed.
 const flushThreshold = 250000
 
+// ErrEmptySet is the error returned by Subset variants and RecordSet.Track
+// when there are no records in the returned *RecordSet because nothing
+// matched the selection criteria. Functions should only return ErrEmptySet when
+// all processing occurred successfully, but the subset criteria provided no
+// matches to return.
+var ErrEmptySet = errors.New("ErrEmptySet")
+
+// Beginning provides a time prior to the discovery of the transistor
+// as a convenience time to enter as the `start` time in functions like
+// RecordSet.Track.  It is highly unlikely that any ais RecordSet will include
+// data before this time and therefore start==Beginning will ensure that all
+// records from the beginning of the RecordSet are examined for matches.
+var Beginning = time.Date(1940, 1, 1, 1, 0, 0, 0, time.UTC)
+
+// All provides a duration of 200 years as a convenience argument for dur in
+// RecordSet.Track(start time.Time, dur time.Duration).  The intent is that the
+// start time plus All will encompass all records in the set.
+var All = time.Hour * 24 * 365 * 200 // 200 years
+
+// Matching provides an interface to pass into the Subset and LimitSubset functions
+// of a RecordSet.
+type Matching interface {
+	Match(*Record) (bool, error)
+}
+
 // Definition is the struct format that JSON dictionary files are
 // loaded into with ais.RecordSet.SetDictionary(blob []byte).
 type Definition struct {
@@ -427,6 +452,9 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 		return nil, fmt.Errorf("subset: csv flush error: %v", err)
 	}
 
+	if recordsLeftToWrite == n { // no change, therefore no records written
+		return rs2, ErrEmptySet
+	}
 	return rs2, nil
 }
 
@@ -438,12 +466,87 @@ func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
 	return rs.SubsetLimit(m, -1)
 }
 
-// Matching provides an interface to pass into the Subset and LimitSubset functions
-// of a RecordSet. Type Box is provided in the package as a concrete implementation
-// of Matching.  Users that desire to create other types that can filter a *RecordSet
-// are encourage to copy the implementation of Box for this purpose.
-type Matching interface {
-	Match(*Record) (bool, error)
+// SubsetByTrack is used within the Track function perform create a concrete Subset
+type subsetByTrack struct {
+	rs             *RecordSet
+	m              int64
+	s              time.Time
+	d              time.Duration
+	mmsiIndex      int
+	timestampIndex int
+}
+
+// NewSubsetByTrack creates a new sbt structure and checks to ensure that the required
+// headers are present before construction.
+func newSubsetByTrack(rs *RecordSet, mmsi int64, start time.Time, dur time.Duration) (*subsetByTrack, error) {
+	sbt := subsetByTrack{
+		rs: rs,
+		m:  mmsi,
+		s:  start,
+		d:  dur,
+	}
+
+	var ok bool
+	sbt.mmsiIndex, ok = sbt.rs.Headers().Contains("MMSI")
+	if !ok {
+		return nil, fmt.Errorf("subsetByTrack: missing header MMSI")
+	}
+	sbt.timestampIndex, ok = sbt.rs.Headers().Contains("BaseDateTime")
+	if !ok {
+		return nil, fmt.Errorf("subsetByTrack: missing header BaseDateTime")
+	}
+
+	return &sbt, nil
+}
+
+// Match implements the Matching interface for subsetByType
+func (sbt subsetByTrack) Match(rec *Record) (bool, error) {
+	mmsi, err := rec.ParseInt(sbt.mmsiIndex)
+	if err != nil {
+		return false, fmt.Errorf("subsetByTrack: %v", err)
+	}
+	t, err := rec.ParseTime(sbt.timestampIndex)
+	if err != nil {
+		return false, fmt.Errorf("subsetByTrack: %v", err)
+	}
+
+	mmsiMatch := mmsi == sbt.m
+	tAfterStart := t.After(sbt.s)
+	future := sbt.s.Add(sbt.d)
+	tBeforeEnd := t.Before(future)
+	return mmsiMatch && tAfterStart && tBeforeEnd, nil
+}
+
+// Track returns a *RecordSet that contains a collection of ais.Record that are
+// sequential in time and belong to the same MMSI.  Arguments to the function are the
+// MMSI of the desired vessel, the start time to begin building the Track and the
+// duration for the amount of time the Track should cover. The returned set contains
+// records with a BaseDateTime on the open interval (start, start+dur). For any error
+// the function returns nil for the returned RecordSet.
+//
+// Convenience variables ais.Beginning of type time.Time and ais.All of type time.Duration
+// are provided in the package to use as the value of start and dur in order to start at
+// the beginning of a RecordSet and return all matches.
+//
+// In addition to normal errors returned when the function cannot successfully execute,
+// the returned error also includes a semephore built in the same implementation as io.EOF
+// so that clients of the Track function can test for an empty RecordSet.  This error
+// returns true from the comparison err == ais.ErrEmptyTrack.
+func (rs *RecordSet) Track(mmsi int64, start time.Time, dur time.Duration) (*RecordSet, error) {
+	sbt, err := newSubsetByTrack(rs, mmsi, start, dur)
+	if err != nil {
+		return nil, err
+	}
+
+	rs2, err := rs.Subset(sbt)
+	if err == ErrEmptySet {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("track: %v", err)
+	}
+
+	return rs2, nil
 }
 
 // Box provides a type with min and max values for latitude and longitude, and Box
@@ -750,8 +853,8 @@ func (r Record) Hash() uint64 {
 // Data returns the underlying []string in a Record as a []byte
 func (r Record) Data() []byte {
 	var b bytes.Buffer
-	for _, f := range r {
-		b.WriteString(f)
+	for _, field := range r {
+		b.WriteString(field)
 	}
 	return b.Bytes()
 }

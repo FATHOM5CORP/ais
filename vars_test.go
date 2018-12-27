@@ -11,6 +11,14 @@ var testRec0 = Record{"376494000", "2017-12-01T00:00:00", "30.28963", "-110.7352
 var testRec1 = Record{"376494001", "2017-12-01T00:00:01", "31.28963", "-111.73522", "9.4", "158.2", "511.0"}
 var testRec2 = Record{"376494002", "2017-12-01T00:00:02", "32.28963", "-112.73522", "9.4", "158.2", "511.0"}
 
+// These records are the string slices from the ten.csv file in testdata.
+var firstRec = []string{"477307901", "2017-12-01T00:00:01", "31.90512", "-76.32652", "0.0", "131.0", "352.0", "FIRST", "IMO9739666", "VRPJ6", "1004", "moored", "337", "", "", ""}
+
+// These records are the three track records in track.csv
+var track1 = []string{"477307901", "2017-12-01T00:00:01", "31.90512", "-76.32652", "0.0", "131.0", "352.0", "FIRST", "IMO9739666", "VRPJ6", "1004", "underway using engines", "337", "", "", ""}
+var track2 = []string{"477307901", "2017-12-01T00:01:01", "31.80512", "-76.42652", "0.0", "131.0", "352.0", "FIRST", "IMO9739666", "VRPJ6", "1004", "underway using engines", "337", "", "", ""}
+var track3 = []string{"477307901", "2017-12-01T00:02:01", "31.70512", "-76.52652", "0.0", "131.0", "352.0", "FIRST", "IMO9739666", "VRPJ6", "1004", "underway using engines", "337", "", "", ""}
+
 // Bad record with malformed time
 var testRec4 = Record{"376494002", "2017-12-01Txx:00:02", "32.28963", "-112.73522", "9.4", "158.2", "511.0"}
 
@@ -26,6 +34,10 @@ var testWindow = Window{
 
 var badHeaders = Headers{ // Missing canonical name BaseDateTime
 	fields: strings.Split("MMSI,Timestamp,LAT,LON,SOG,COG,Heading,"+
+		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
+}
+var badHeaders2 = Headers{ // Missing canonical name MMSI
+	fields: strings.Split("BaseDateTime,LAT,LON,SOG,COG,Heading,"+
 		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
 }
 

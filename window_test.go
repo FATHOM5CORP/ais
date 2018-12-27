@@ -15,7 +15,7 @@ func TestNewWindow(t *testing.T) {
 		h: goodHeaders,
 		r: csv.NewReader(&errorReader{}),
 	}
-	badSet3, _ := OpenRecordSet("testdata/badData.csv")
+	badSet3, _ := OpenRecordSet("testdata/badTimeData.csv")
 	defer badSet3.Close()
 
 	type args struct {
