@@ -995,21 +995,21 @@ func (r Record) ParseTime(index int) (time.Time, error) {
 // NOTE: THIS SET OF FIELDS WILL EVOLVE OVER TIME TO SUPPORT A LARGER
 // SET OF USE CASES AND ANALYTICS.  DO NOT RELY ON THE ORDER OF THE
 // FIELDS IN THIS TYPE.
-type Report struct {
-	MMSI      int64
-	Lat       float64
-	Lon       float64
-	Timestamp time.Time
-	data      []interface{}
-}
+// type Report struct {
+// 	MMSI      int64
+// 	Lat       float64
+// 	Lon       float64
+// 	Timestamp time.Time
+// 	data      []interface{}
+// }
 
 // Data returns the Report fields in a slice of interface values.
-func (rep Report) Data() []interface{} {
-	rep.data = []interface{}{
-		int64(rep.MMSI),
-		time.Time(rep.Timestamp),
-		float64(rep.Lat),
-		float64(rep.Lon),
-	}
-	return rep.data
-}
+// func (rep Report) Data() []interface{} {
+// 	rep.data = []interface{}{
+// 		int64(rep.MMSI),
+// 		time.Time(rep.Timestamp),
+// 		float64(rep.Lat),
+// 		float64(rep.Lon),
+// 	}
+// 	return rep.data
+// }
