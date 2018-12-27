@@ -194,15 +194,13 @@ func OpenRecordSet(filename string) (*RecordSet, error) {
 
 	rs.w = csv.NewWriter(f)
 
-	// The first line of a valid ais datafile should contain the headers
-	// that are Valid()
+	// The first line of a valid ais datafile should contain the headers.
+	// The following Read() command also advances the file pointer so that
+	// it now points at the first data line.
 	var h Headers
 	h.fields, err = rs.r.Read()
 	if err != nil {
 		return nil, fmt.Errorf("open recordset: %v", err)
-	}
-	if !h.Valid() {
-		return nil, fmt.Errorf("open recordset: %s has invalid headers", filename)
 	}
 	rs.h = h
 
@@ -784,21 +782,6 @@ func (h Headers) Contains(field string) (i int, ok bool) {
 		}
 	}
 	return 0, false
-}
-
-// Valid returns true if the passed headers contain the minimum viable fields
-// to create a unique ais report.
-// NOTE: THE VALIDATION HARDCODED HERE IS NOT SCALABLE.  THE VALID FUNCTION
-// SHOULD CHECK FIELD NAMES ASSOCIATED WITH SEVERAL DATA SOURCES NOT JUST
-// THE NAMES AVAILABLE IN THE MARINECADASTRE DATA.
-func (h Headers) Valid() bool {
-	requiredFields := []string{"MMSI", "LAT", "LON", "BaseDateTime"}
-	for _, field := range requiredFields {
-		if _, ok := h.Contains(field); !ok {
-			return false
-		}
-	}
-	return true
 }
 
 // String satisfies the fmt.Stringer interface for Headers.

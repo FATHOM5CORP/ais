@@ -38,9 +38,6 @@ type Interactions struct {
 // "BaseDateTime", "LAT", and "LON" in order to uniquely identify an interaction. The returned
 // *Interactions has its output file Headers set to ais.InteractionHeaders by default.
 func NewInteractions(h Headers) (*Interactions, error) {
-	if !h.Valid() {
-		return nil, fmt.Errorf("new interactions: headers argument did not pass headers.valid()")
-	}
 	inter := new(Interactions)
 	inter.OutputHeaders = Headers{
 		fields:     strings.Split(InteractionFields, ","),

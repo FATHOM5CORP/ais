@@ -246,79 +246,6 @@ func TestHeaders_Contains(t *testing.T) {
 	}
 }
 
-func TestHeaders_Valid(t *testing.T) {
-	type fields struct {
-		fields     []string
-		dictionary map[string]string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   bool
-	}{
-		{
-			name: "pass",
-			fields: fields{
-				fields:     []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-				dictionary: nil,
-			},
-			want: true,
-		},
-		{
-			name: "missing MMSI",
-			fields: fields{
-				fields:     []string{"LAT", "LON", "BaseDateTime"},
-				dictionary: nil,
-			},
-			want: false,
-		},
-		{
-			name: "lowercase mmsi",
-			fields: fields{
-				fields:     []string{"mmsi", "LAT", "LON", "BaseDateTime"},
-				dictionary: nil,
-			},
-			want: false,
-		},
-		{
-			name: "missing LAT",
-			fields: fields{
-				fields:     []string{"MMSI", "LON", "BaseDateTime"},
-				dictionary: nil,
-			},
-			want: false,
-		},
-
-		{
-			name: "spelled Longitude",
-			fields: fields{
-				fields:     []string{"MMSI", "LAT", "Longitude", "BaseDateTime"},
-				dictionary: nil,
-			},
-			want: false,
-		},
-		{
-			name: "timestamp instead of BaseDateTime",
-			fields: fields{
-				fields:     []string{"MMSI", "LAT", "LON", "timestamp"},
-				dictionary: nil,
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := Headers{
-				fields:     tt.fields.fields,
-				dictionary: tt.fields.dictionary,
-			}
-			if got := h.Valid(); got != tt.want {
-				t.Errorf("Headers.Valid() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestNewHeaders(t *testing.T) {
 	type args struct {
 		fields []string
@@ -468,12 +395,6 @@ func TestOpenRecordSet(t *testing.T) {
 		{
 			name:     "empty file is unreadable",
 			filename: "testdata/empty.csv",
-			want:     nil,
-			wantErr:  true,
-		},
-		{
-			name:     "invalid headers",
-			filename: "testdata/badHeaders.csv",
 			want:     nil,
 			wantErr:  true,
 		},
