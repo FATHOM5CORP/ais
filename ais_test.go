@@ -920,3 +920,95 @@ func Test_newSubsetByTrack(t *testing.T) {
 		})
 	}
 }
+
+func TestRecordSet_UniqueVessels(t *testing.T) {
+	type fields struct {
+		r     *csv.Reader
+		w     *csv.Writer
+		h     Headers
+		data  io.ReadWriter
+		first *Record
+		stash *Record
+	}
+	tests := []struct {
+		name             string
+		fields           fields
+		skipHeaders      bool
+		want             VesselSet
+		wantErr          bool
+		wantErrSubstring string
+	}{
+		{
+			name: "basic usage",
+			fields: fields{
+				r: csv.NewReader(strings.NewReader(testString)),
+			},
+			skipHeaders:      false,
+			want:             VesselSet{{"477307901", "FIRST"}: true, {"338029922", "SECOND"}: true, {"369080003", "THIRD"}: true},
+			wantErr:          false,
+			wantErrSubstring: "",
+		},
+		{
+			name: "no mmsi header",
+			fields: fields{
+				r: csv.NewReader(strings.NewReader(testStringBadHeader1)),
+			},
+			skipHeaders:      false,
+			want:             nil,
+			wantErr:          true,
+			wantErrSubstring: "does not contain MMSI",
+		},
+		{
+			name: "no vessel name header",
+			fields: fields{
+				r: csv.NewReader(strings.NewReader(testStringBadHeader2)),
+			},
+			skipHeaders:      false,
+			want:             VesselSet{{"477307901", "no VesselName header"}: true, {"338029922", "no VesselName header"}: true, {"369080003", "no VesselName header"}: true},
+			wantErr:          false,
+			wantErrSubstring: "",
+		},
+		{
+			name: "bad reader",
+			fields: fields{
+				r: csv.NewReader(&errorReader{}),
+				h: goodHeaders,
+			},
+			skipHeaders:      true,
+			want:             nil,
+			wantErr:          true,
+			wantErrSubstring: "errorReader used for testing",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs := &RecordSet{
+				r:     tt.fields.r,
+				w:     tt.fields.w,
+				data:  tt.fields.data,
+				first: tt.fields.first,
+				stash: tt.fields.stash,
+			}
+			rs.r.LazyQuotes = true
+			rs.r.Comment = '#'
+			if tt.skipHeaders {
+				rs.h = tt.fields.h
+			} else {
+				rec, _ := rs.Read()
+				rs.SetHeaders(Headers{[]string(*rec), nil})
+			}
+			got, err := rs.UniqueVessels()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecordSet.UniqueVessels() error = %v, wantErr = %v", err, tt.wantErr)
+				return
+			}
+			if (err != nil) && !strings.Contains(err.Error(), tt.wantErrSubstring) {
+				t.Errorf("RecordSet.UniqueVessels() error = %v, wantErrSubstring = %v", err, tt.wantErrSubstring)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.UniqueVessels() = %v, want = %v", got, tt.want)
+			}
+		})
+	}
+}

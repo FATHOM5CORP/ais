@@ -7,6 +7,31 @@ import (
 	"time"
 )
 
+// TestString is a string that serves as a proxy for a csv file and is used in
+// a RecordSet test by intantiating the csv.Reader as csv.NewReader(strings.NewReader(testsTring))
+var testString = `# test data corresponding to the first few rows of ten.csv
+MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo
+477307901,2017-12-01T00:00:01,31.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,
+338029922,2017-12-01T00:00:02,42.83931,-73.74403,37.7,110.6,511.0,SECOND,,,,,,,,
+369080003,2017-12-01T00:00:03,43.60792,-74.20417,4.1,1.0,5.0,THIRD,IMO9795933,WDI7248,1025,under way using engine,,,,
+`
+
+// TestStringBadHeader1 lacks the canonical capitalization for MMSI
+var testStringBadHeader1 = `# test data corresponding to the first few rows of ten.csv
+mmsi,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo
+477307901,2017-12-01T00:00:01,31.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,
+338029922,2017-12-01T00:00:02,42.83931,-73.74403,37.7,110.6,511.0,SECOND,,,,,,,,
+369080003,2017-12-01T00:00:03,43.60792,-74.20417,4.1,1.0,5.0,THIRD,IMO9795933,WDI7248,1025,under way using engine,,,,
+`
+
+// TestStringBadHeader2 is missing the VesselName field
+var testStringBadHeader2 = `# test data corresponding to the first few rows of ten.csv
+MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo
+477307901,2017-12-01T00:00:01,31.90512,-76.32652,0.0,131.0,352.0,IMO9739666,VRPJ6,1004,moored,337,,,
+338029922,2017-12-01T00:00:02,42.83931,-73.74403,37.7,110.6,511.0,,,,,,,,
+369080003,2017-12-01T00:00:03,43.60792,-74.20417,4.1,1.0,5.0,IMO9795933,WDI7248,1025,under way using engine,,,,
+`
+
 var testRec0 = Record{"376494000", "2017-12-01T00:00:00", "30.28963", "-110.73522", "9.4", "158.2", "511.0"}
 var testRec1 = Record{"376494001", "2017-12-01T00:00:01", "31.28963", "-111.73522", "9.4", "158.2", "511.0"}
 var testRec2 = Record{"376494002", "2017-12-01T00:00:02", "32.28963", "-112.73522", "9.4", "158.2", "511.0"}

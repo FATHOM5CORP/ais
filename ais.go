@@ -464,6 +464,40 @@ func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
 	return rs.SubsetLimit(m, -1)
 }
 
+// UniqueVessels returns a VesselMap of every vessel in the dataset
+// NOTE: THE VESSELMAP RETURNED IS BUILT ONLY ON THE MMSI AND VESSEL NAME
+// OF THE SHIP.  OTHER FIELDS OF VESSEL MAY NEED TO BE ADDED FOR FUTURE
+// ANALYSIS CAPABILITIES OF THE PACKAGE.
+func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
+	vs := make(VesselSet)
+	var defaultVesselName = "no VesselName header"
+
+	mmsiIndex, ok := rs.Headers().Contains("MMSI")
+	if !ok {
+		return nil, fmt.Errorf("unique vessels: recordset does not contain MMSI header")
+	}
+	vesselNameIndex, okVesselName := rs.Headers().Contains("VesselName")
+
+	var rec *Record
+	var err error
+	for {
+		rec, err = rs.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("unique vessel: read error on csv file: %v", err)
+		}
+		if okVesselName {
+			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}] = true
+		} else {
+			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: defaultVesselName}] = true
+		}
+	}
+
+	return vs, nil
+}
+
 // SubsetByTrack is used within the Track function perform create a concrete Subset
 type subsetByTrack struct {
 	rs             *RecordSet
@@ -602,38 +636,6 @@ func (rs *RecordSet) Save(name string) error {
 	}
 
 	return nil
-}
-
-// UniqueVessels returns a VesselMap of every vessel in the dataset
-// NOTE: THE VESSELMAP RETURNED IS BUILT ONLY ON THE MMSI AND VESSEL NAME
-// OF THE SHIP.  OTHER FIELDS OF VESSEL MAY NEED TO BE ADDED FOR FUTURE
-// ANALYSIS CAPABILITIES OF THE PACKAGE.
-func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
-	vs := make(VesselSet)
-
-	mmsiIndex, ok := rs.Headers().Contains("MMSI")
-	if !ok {
-		return nil, fmt.Errorf("unique vessels: recordset does not contain 'MMSI' header")
-	}
-	vesselNameIndex, ok := rs.Headers().Contains("VesselName")
-	if !ok {
-		return nil, fmt.Errorf("unique vessels: recordset does not contain 'VesselName' header")
-	}
-
-	var rec *Record
-	var err error
-	for {
-		rec, err = rs.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("unique vessel: read error on csv file: %v", err)
-		}
-		vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}] = true
-	}
-
-	return vs, nil
 }
 
 // ByTimestamp implements the sort.Interface for creating a RecordSet
