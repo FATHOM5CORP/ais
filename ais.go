@@ -6,6 +6,7 @@
 package ais
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
@@ -480,6 +481,15 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 
 	var rec *Record
 	var err error
+
+	// In order to reset the read pointer of rs to the same data it was pointing at
+	// when entering the function we create a new buffer and write all Reads to it.
+	// Then point rs.r to this buffer at the end of the function. A more (MUCH MORE)
+	// efficient solution would probably be controlling the Seek() value of the underlying
+	// decriptor, but csv.Reader does not expose this pointer.
+	copyBuf := &bytes.Buffer{}
+	copyWriter := bufio.NewWriter(copyBuf)
+
 	for {
 		rec, err = rs.Read()
 		if err == io.EOF {
@@ -488,6 +498,8 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unique vessel: read error on csv file: %v", err)
 		}
+		copyWriter.Write(rec.Data())
+
 		if okVesselName {
 			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}] = true
 		} else {
@@ -495,6 +507,8 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 		}
 	}
 
+	copyWriter.Flush()
+	rs.r = csv.NewReader(copyBuf)
 	return vs, nil
 }
 
@@ -838,9 +852,8 @@ func (r Record) Hash() uint64 {
 // Data returns the underlying []string in a Record as a []byte
 func (r Record) Data() []byte {
 	var b bytes.Buffer
-	for _, field := range r {
-		b.WriteString(field)
-	}
+	b.WriteString(strings.Join([]string(r), ","))
+	b.WriteString("\n")
 	return b.Bytes()
 }
 
