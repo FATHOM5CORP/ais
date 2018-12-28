@@ -6,6 +6,7 @@
 package ais
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"hash/fnv"
@@ -660,13 +661,15 @@ func TestRecordSet_SubsetLimit(t *testing.T) {
 
 func localHash(fields []string) uint64 {
 	h64 := fnv.New64a()
-	for _, f := range fields {
-		_, err := h64.Write([]byte(f))
-		if err != nil {
-			msg := fmt.Sprintf("test setup error: %v", err)
-			panic(msg)
-		}
+	buf := new(bytes.Buffer)
+	buf.WriteString(strings.Join(fields, ","))
+	buf.WriteString("\n")
+	_, err := h64.Write(buf.Bytes())
+	if err != nil {
+		msg := fmt.Sprintf("test setup error: %v", err)
+		panic(msg)
 	}
+
 	return h64.Sum64()
 }
 
@@ -781,7 +784,7 @@ func TestRecordSet_Track(t *testing.T) {
 				hashes = append(hashes, hash)
 			}
 			if !reflect.DeepEqual(hashes, tt.want) {
-				t.Errorf("RecordSet.Read() = %v, want %v", hashes, tt.want)
+				t.Errorf("RecordSet.Track() = %v, want %v", hashes, tt.want)
 			}
 		})
 	}
@@ -1004,6 +1007,64 @@ func TestRecordSet_UniqueVessels(t *testing.T) {
 			}
 			if (err != nil) && !strings.Contains(err.Error(), tt.wantErrSubstring) {
 				t.Errorf("RecordSet.UniqueVessels() error = %v, wantErrSubstring = %v", err, tt.wantErrSubstring)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RecordSet.UniqueVessels() = %v, want = %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRecordSet_UniqueVessels_DoubleUse(t *testing.T) {
+	type fields struct {
+		r     *csv.Reader
+		w     *csv.Writer
+		h     Headers
+		data  io.ReadWriter
+		first *Record
+		stash *Record
+	}
+	tests := []struct {
+		name        string
+		fields      fields
+		skipHeaders bool
+		want        VesselSet
+		wantErr     bool
+	}{
+		{
+			name: "double use",
+			fields: fields{
+				r: csv.NewReader(strings.NewReader(testString)),
+			},
+			skipHeaders: false,
+			want:        VesselSet{{"477307901", "FIRST"}: true, {"338029922", "SECOND"}: true, {"369080003", "THIRD"}: true},
+			wantErr:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rs := &RecordSet{
+				r:     tt.fields.r,
+				w:     tt.fields.w,
+				data:  tt.fields.data,
+				first: tt.fields.first,
+				stash: tt.fields.stash,
+			}
+			rs.r.LazyQuotes = true
+			rs.r.Comment = '#'
+			if tt.skipHeaders {
+				rs.h = tt.fields.h
+			} else {
+				rec, _ := rs.Read()
+				rs.SetHeaders(Headers{[]string(*rec), nil})
+			}
+			got, _ := rs.UniqueVessels()
+			// got, _ = rs.UniqueVessels()
+			// got, _ = rs.UniqueVessels()
+			got, err := rs.UniqueVessels()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecordSet.UniqueVessels() error = %v, wantErr = %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
