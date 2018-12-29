@@ -770,6 +770,24 @@ func (h Headers) Contains(field string) (i int, ok bool) {
 	return 0, false
 }
 
+// ContainsMulti returns a map[string]int where the map keys are the
+// field names and the int values are the index positions of the various
+// fields in the Headers set. If there is an error determining an index
+// position for any field then idxMap returns nil and ok is false.  Users
+// should always check for !ok and handle accordingly.
+func (h Headers) ContainsMulti(fields ...string) (idxMap map[string]int, ok bool) {
+	idxMap = make(map[string]int)
+	for _, f := range fields { // note range over argument not receiver
+		idx, ok := h.Contains(f)
+		if ok {
+			idxMap[f] = idx
+		} else {
+			return nil, false
+		}
+	}
+	return idxMap, true
+}
+
 // String satisfies the fmt.Stringer interface for Headers.
 // If a dictionary has been provided then it prints the headers and
 // their definitions.

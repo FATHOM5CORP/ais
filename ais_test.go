@@ -272,6 +272,70 @@ func TestHeaders_Contains(t *testing.T) {
 	}
 }
 
+func TestHeaders_ContainsMulti(t *testing.T) {
+	type fields struct {
+		Fields []string
+	}
+	type args struct {
+		fields []string
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		args       args
+		wantIdxMap map[string]int
+		wantOk     bool
+	}{
+		{
+			name: "single",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
+			},
+			args: args{
+				fields: []string{"MMSI"},
+			},
+			wantIdxMap: map[string]int{"MMSI": 0},
+			wantOk:     true,
+		},
+		{
+			name: "triple",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
+			},
+			args: args{
+				fields: []string{"MMSI", "VesselName", "BaseDateTime"},
+			},
+			wantIdxMap: map[string]int{"MMSI": 0, "VesselName": 7, "BaseDateTime": 1},
+			wantOk:     true,
+		},
+		{
+			name: "no ok",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
+			},
+			args: args{
+				fields: []string{"timestamp"},
+			},
+			wantIdxMap: nil,
+			wantOk:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := Headers{
+				Fields: tt.fields.Fields,
+			}
+			gotIdxMap, gotOk := h.ContainsMulti(tt.args.fields...)
+			if !reflect.DeepEqual(gotIdxMap, tt.wantIdxMap) {
+				t.Errorf("Headers.ContainsMulti() gotIdxMap = %v, want %v", gotIdxMap, tt.wantIdxMap)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("Headers.ContainsMulti() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
 func TestHeaders_String(t *testing.T) {
 	type fields struct {
 		Fields []string
