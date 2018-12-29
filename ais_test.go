@@ -185,6 +185,34 @@ func getTime(s string) time.Time {
 // 	}
 // }
 
+func TestNewHeaders(t *testing.T) {
+	type args struct {
+		Fields []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want Headers
+	}{
+		{
+			name: "pass minimum set",
+			args: args{
+				Fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
+			},
+			want: Headers{
+				Fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewHeaders(tt.args.Fields); !got.Equals(tt.want) {
+				t.Errorf("NewHeaders() = \n%v \nwant \n%v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestHeaders_Contains(t *testing.T) {
 	type args struct {
 		field string
@@ -199,8 +227,7 @@ func TestHeaders_Contains(t *testing.T) {
 		{
 			name: "pass",
 			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
+				Fields: []string{"MMSI", "BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
 			},
 			args:   args{"BaseDateTime"},
 			wantI:  1,
@@ -209,8 +236,7 @@ func TestHeaders_Contains(t *testing.T) {
 		{
 			name: "fail no mmsi",
 			h: Headers{
-				fields:     []string{"BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
-				dictionary: nil,
+				Fields: []string{"BaseDateTime", "LAT", "LON", "SOG", "COG", "Heading"},
 			},
 			args:   args{"MMSI"},
 			wantI:  0,
@@ -219,8 +245,7 @@ func TestHeaders_Contains(t *testing.T) {
 		{
 			name: "fail misspelled LON",
 			h: Headers{
-				fields:     []string{"MMSI", "BaseDateTime", "LAT", "Longitude", "SOG", "COG", "Heading"},
-				dictionary: nil,
+				Fields: []string{"MMSI", "BaseDateTime", "LAT", "Longitude", "SOG", "COG", "Heading"},
 			},
 			args:   args{"LON"},
 			wantI:  0,
@@ -228,7 +253,7 @@ func TestHeaders_Contains(t *testing.T) {
 		},
 		{
 			name:   "fail blank input headers",
-			h:      Headers{fields: []string{}, dictionary: nil},
+			h:      Headers{Fields: []string{}},
 			args:   args{"BaseDateTime"},
 			wantI:  0,
 			wantOk: false,
@@ -247,53 +272,162 @@ func TestHeaders_Contains(t *testing.T) {
 	}
 }
 
-func TestNewHeaders(t *testing.T) {
+func TestHeaders_ContainsMulti(t *testing.T) {
+	type fields struct {
+		Fields []string
+	}
 	type args struct {
 		fields []string
-		defs   []Definition
 	}
 	tests := []struct {
-		name string
-		args args
-		want Headers
+		name       string
+		fields     fields
+		args       args
+		wantIdxMap map[string]int
+		wantOk     bool
 	}{
 		{
-			name: "pass minimum set",
+			name: "single",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
+			},
 			args: args{
-				fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-				defs:   nil,
+				fields: []string{"MMSI"},
 			},
-			want: Headers{
-				fields:     []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-				dictionary: nil,
-			},
+			wantIdxMap: map[string]int{"MMSI": 0},
+			wantOk:     true,
 		},
 		{
-			name: "pass with dictionary",
+			name: "triple",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
+			},
 			args: args{
-				fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-				defs: []Definition{
-					{Fieldname: "MMSI", Description: "Unique vessel identifier"},
-					{Fieldname: "LAT", Description: "Latitude of the position report"},
-					{Fieldname: "LON", Description: "Longitude of the position report"},
-					{Fieldname: "BaseDateTime", Description: "Timestamp of the position report"},
-				},
+				fields: []string{"MMSI", "VesselName", "BaseDateTime"},
 			},
-			want: Headers{
-				fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-				dictionary: map[string]string{
-					"MMSI":         "Some description",
-					"LAT":          "Some description",
-					"LON":          "Some description",
-					"BaseDateTime": "Some description",
-				},
+			wantIdxMap: map[string]int{"MMSI": 0, "VesselName": 7, "BaseDateTime": 1},
+			wantOk:     true,
+		},
+		{
+			name: "no ok",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
 			},
+			args: args{
+				fields: []string{"timestamp"},
+			},
+			wantIdxMap: nil,
+			wantOk:     false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewHeaders(tt.args.fields, tt.args.defs); !got.Equals(tt.want) {
-				t.Errorf("NewHeaders() = \n%v \nwant \n%v", got, tt.want)
+			h := Headers{
+				Fields: tt.fields.Fields,
+			}
+			gotIdxMap, gotOk := h.ContainsMulti(tt.args.fields...)
+			if !reflect.DeepEqual(gotIdxMap, tt.wantIdxMap) {
+				t.Errorf("Headers.ContainsMulti() gotIdxMap = %v, want %v", gotIdxMap, tt.wantIdxMap)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("Headers.ContainsMulti() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestHeaders_String(t *testing.T) {
+	type fields struct {
+		Fields []string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "successful test",
+			fields: fields{
+				Fields: strings.Split(basicHeadersString, ","),
+			},
+			want: `Index  Header
+0      MMSI
+1      BaseDateTime
+2      LAT
+3      LON
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := Headers{
+				Fields: tt.fields.Fields,
+			}
+			if got := h.String(); got != tt.want {
+				t.Errorf("Headers.String() = \n%v \nwant = \n%v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHeaders_Equals(t *testing.T) {
+	type args struct {
+		h2 Headers
+	}
+	tests := []struct {
+		name   string
+		Fields []string
+		args   args
+		want   bool
+	}{
+		{
+			name:   "h2 has nil Fields",
+			Fields: strings.Split(basicHeadersString, ","),
+			args: args{
+				h2: Headers{},
+			},
+			want: false,
+		},
+		{
+			name:   "h1 has nil Fields",
+			Fields: nil,
+			args: args{
+				h2: Headers{Fields: strings.Split(basicHeadersString, ",")},
+			},
+			want: false,
+		},
+		{
+			name:   "h1 and h2 have different length []string fields",
+			Fields: strings.Split(defaultHeadersString, ","),
+			args: args{
+				h2: Headers{Fields: strings.Split(basicHeadersString, ",")},
+			},
+			want: false,
+		},
+		{
+			name:   "h1 and h2 have different field names",
+			Fields: strings.Split(defaultHeadersString, ","),
+			args: args{
+				h2: Headers{Fields: strings.Split(nonCanonicalHeadersString, ",")},
+			},
+			want: false,
+		},
+		{
+			name:   "success",
+			Fields: strings.Split(defaultHeadersString, ","),
+			args: args{
+				h2: Headers{Fields: strings.Split(defaultHeadersString, ",")},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := Headers{
+				Fields: tt.Fields,
+			}
+			if got := h.Equals(tt.args.h2); got != tt.want {
+				t.Errorf("Headers.Equals() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1021,7 +1155,7 @@ func TestRecordSet_UniqueVessels(t *testing.T) {
 				rs.h = tt.fields.h
 			} else {
 				rec, _ := rs.Read()
-				rs.SetHeaders(Headers{[]string(*rec), nil})
+				rs.SetHeaders(Headers{[]string(*rec)})
 			}
 			got, err := rs.UniqueVessels()
 			if (err != nil) != tt.wantErr {
@@ -1080,7 +1214,7 @@ func TestRecordSet_UniqueVessels_DoubleUse(t *testing.T) {
 				rs.h = tt.fields.h
 			} else {
 				rec, _ := rs.Read()
-				rs.SetHeaders(Headers{[]string(*rec), nil})
+				rs.SetHeaders(Headers{[]string(*rec)})
 			}
 			got, _ := rs.UniqueVessels()
 			// got, _ = rs.UniqueVessels()

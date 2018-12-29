@@ -12,7 +12,7 @@ import (
 // Example demonstrates a simple use of the Distance function.
 func ExampleRecord_Distance() {
 	h := strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ",")
-	headers := ais.NewHeaders(h, nil)
+	headers := ais.NewHeaders(h)
 	latIndex, _ := headers.Contains("LAT")
 	lonIndex, _ := headers.Contains("LON")
 
@@ -35,7 +35,7 @@ func ExampleRecord_ParseTime() {
 	h := strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ",")
 	data := strings.Split("477307900,2017-12-01T00:00:03,36.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
 
-	headers := ais.NewHeaders(h, nil)
+	headers := ais.NewHeaders(h)
 	rec := ais.Record(data)
 
 	timeIndex, _ := headers.Contains("BaseDateTime")

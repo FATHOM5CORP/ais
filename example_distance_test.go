@@ -13,7 +13,7 @@ import (
 func Example_distance() {
 
 	h := strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ",")
-	headers := ais.NewHeaders(h, nil)
+	headers := ais.NewHeaders(h)
 	latIndex, _ := headers.Contains("LAT")
 	lonIndex, _ := headers.Contains("LON")
 

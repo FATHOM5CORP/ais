@@ -58,18 +58,22 @@ var testWindow = Window{
 }
 
 var badHeaders = Headers{ // Missing canonical name BaseDateTime
-	fields: strings.Split("MMSI,Timestamp,LAT,LON,SOG,COG,Heading,"+
+	Fields: strings.Split("MMSI,Timestamp,LAT,LON,SOG,COG,Heading,"+
 		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
 }
 var badHeaders2 = Headers{ // Missing canonical name MMSI
-	fields: strings.Split("BaseDateTime,LAT,LON,SOG,COG,Heading,"+
+	Fields: strings.Split("BaseDateTime,LAT,LON,SOG,COG,Heading,"+
 		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
 }
 
 var goodHeaders = Headers{
-	fields: strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,"+
+	Fields: strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,"+
 		"VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ","),
 }
+
+var basicHeadersString = `MMSI,BaseDateTime,LAT,LON`
+var defaultHeadersString = `MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo`
+var nonCanonicalHeadersString = `MMSI,Timestamp,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo`
 
 type errorReader struct{}
 

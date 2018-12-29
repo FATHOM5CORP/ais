@@ -16,7 +16,7 @@ func Example() {
 	h := strings.Split("MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo", ",")
 	data := strings.Split("477307900,2017-12-01T00:00:03,36.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,moored,337,,,", ",")
 
-	rs.SetHeaders(ais.NewHeaders(h, nil))
+	rs.SetHeaders(ais.NewHeaders(h))
 
 	rec1 := ais.Record(data)
 	err := rs.Write(rec1)

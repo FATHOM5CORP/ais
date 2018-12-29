@@ -40,8 +40,7 @@ type Interactions struct {
 func NewInteractions(h Headers) (*Interactions, error) {
 	inter := new(Interactions)
 	inter.OutputHeaders = Headers{
-		fields:     strings.Split(InteractionFields, ","),
-		dictionary: nil,
+		Fields: strings.Split(InteractionFields, ","),
 	}
 	inter.RecordHeaders = h
 	inter.data = make(map[uint64]*RecordPair)
@@ -113,7 +112,7 @@ func (inter *Interactions) Save(filename string) error {
 	}
 
 	w := csv.NewWriter(out)
-	err = w.Write(inter.OutputHeaders.fields)
+	err = w.Write(inter.OutputHeaders.Fields)
 	if err != nil {
 		return fmt.Errorf("interactions save: %v", err)
 	}
