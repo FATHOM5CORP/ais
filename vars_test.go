@@ -16,6 +16,13 @@ MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Sta
 369080003,2017-12-01T00:00:03,43.60792,-74.20417,4.1,1.0,5.0,THIRD,IMO9795933,WDI7248,1025,under way using engine,,,,
 `
 
+// TestTrackString provides three records of the same vessel.
+var testTrackString = `MMSI,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo
+477307901,2017-12-01T00:00:01,31.90512,-76.32652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,underway using engines,337,,,
+477307901,2017-12-01T00:01:01,31.80512,-76.42652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,underway using engines,337,,,
+477307901,2017-12-01T00:02:01,31.70512,-76.52652,0.0,131.0,352.0,FIRST,IMO9739666,VRPJ6,1004,underway using engines,337,,,
+`
+
 // TestStringBadHeader1 lacks the canonical capitalization for MMSI
 var testStringBadHeader1 = `# test data corresponding to the first few rows of ten.csv
 mmsi,BaseDateTime,LAT,LON,SOG,COG,Heading,VesselName,IMO,CallSign,VesselType,Status,Length,Width,Draft,Cargo

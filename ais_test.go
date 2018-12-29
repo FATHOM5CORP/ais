@@ -1104,7 +1104,7 @@ func TestRecordSet_UniqueVessels(t *testing.T) {
 				r: csv.NewReader(strings.NewReader(testString)),
 			},
 			skipHeaders:      false,
-			want:             VesselSet{{"477307901", "FIRST"}: true, {"338029922", "SECOND"}: true, {"369080003", "THIRD"}: true},
+			want:             VesselSet{{"477307901", "FIRST"}: 1, {"338029922", "SECOND"}: 1, {"369080003", "THIRD"}: 1},
 			wantErr:          false,
 			wantErrSubstring: "",
 		},
@@ -1124,7 +1124,7 @@ func TestRecordSet_UniqueVessels(t *testing.T) {
 				r: csv.NewReader(strings.NewReader(testStringBadHeader2)),
 			},
 			skipHeaders:      false,
-			want:             VesselSet{{"477307901", "no VesselName header"}: true, {"338029922", "no VesselName header"}: true, {"369080003", "no VesselName header"}: true},
+			want:             VesselSet{{"477307901", "no VesselName header"}: 1, {"338029922", "no VesselName header"}: 1, {"369080003", "no VesselName header"}: 1},
 			wantErr:          false,
 			wantErrSubstring: "",
 		},
@@ -1138,6 +1138,16 @@ func TestRecordSet_UniqueVessels(t *testing.T) {
 			want:             nil,
 			wantErr:          true,
 			wantErrSubstring: "errorReader used for testing",
+		},
+		{
+			name: "one vessel three occurances",
+			fields: fields{
+				r: csv.NewReader(strings.NewReader(testTrackString)),
+			},
+			skipHeaders:      false,
+			want:             VesselSet{{"477307901", "FIRST"}: 3},
+			wantErr:          false,
+			wantErrSubstring: "",
 		},
 	}
 	for _, tt := range tests {
@@ -1195,7 +1205,7 @@ func TestRecordSet_UniqueVessels_DoubleUse(t *testing.T) {
 				r: csv.NewReader(strings.NewReader(testString)),
 			},
 			skipHeaders: false,
-			want:        VesselSet{{"477307901", "FIRST"}: true, {"338029922", "SECOND"}: true, {"369080003", "THIRD"}: true},
+			want:        VesselSet{{"477307901", "FIRST"}: 1, {"338029922", "SECOND"}: 1, {"369080003", "THIRD"}: 1},
 			wantErr:     false,
 		},
 	}

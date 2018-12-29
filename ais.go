@@ -89,9 +89,10 @@ type Vessel struct {
 	// Draft      string
 }
 
-// VesselSet is a map[Type]bool set of unique vessels usually obtained
-// by the return value of rs.UniqueVessels()
-type VesselSet map[Vessel]bool
+// VesselSet is a set of unique vessels usually obtained by the return
+// value of RecordSet.UniqueVessels().  For each Record of a Vessel in the
+// set the int value of the VesselSet is incremented
+type VesselSet map[Vessel]int
 
 // Field is an abstraction for string values that are read from and
 // written to AIS Records.
@@ -477,9 +478,9 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 		copyWriter.Write(rec.Data())
 
 		if okVesselName {
-			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}] = true
+			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}]++
 		} else {
-			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: defaultVesselName}] = true
+			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: defaultVesselName}]++
 		}
 	}
 
