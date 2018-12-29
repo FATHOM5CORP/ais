@@ -314,7 +314,7 @@ func TestBox_Match(t *testing.T) {
 
 	type fields struct {
 		MinLat   float64
-		Maxlat   float64
+		MaxLat   float64
 		MinLon   float64
 		MaxLon   float64
 		LatIndex int
@@ -361,7 +361,7 @@ func TestBox_Match(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &Box{
 				MinLat:   tt.fields.MinLat,
-				Maxlat:   tt.fields.Maxlat,
+				MaxLat:   tt.fields.MaxLat,
 				MinLon:   tt.fields.MinLon,
 				MaxLon:   tt.fields.MaxLon,
 				LatIndex: tt.fields.LatIndex,
@@ -593,7 +593,7 @@ func TestRecordSet_SubsetLimit(t *testing.T) {
 			},
 			args: args{
 				m: &Box{
-					MinLat: 0, Maxlat: 40, MinLon: -90, MaxLon: -70,
+					MinLat: 0, MaxLat: 40, MinLon: -90, MaxLon: -70,
 					LatIndex: 2, LonIndex: 3,
 				},
 				n: -1,

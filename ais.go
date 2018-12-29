@@ -616,7 +616,7 @@ func (rs *RecordSet) Track(mmsi int64, start time.Time, dur time.Duration) (*Rec
 // called in *Record.ParseFloat(index) from the Match method of a Box in order to
 // see if the Record is in the Box.
 type Box struct {
-	MinLat, Maxlat, MinLon, MaxLon float64
+	MinLat, MaxLat, MinLon, MaxLon float64
 	LatIndex, LonIndex             int
 }
 
@@ -633,7 +633,7 @@ func (b *Box) Match(rec *Record) (bool, error) {
 		return false, fmt.Errorf("unable to parse %v", (*rec)[b.LonIndex])
 	}
 
-	return lat >= b.MinLat && lat <= b.Maxlat && lon >= b.MinLon && lon <= b.MaxLon, nil
+	return lat >= b.MinLat && lat <= b.MaxLat && lon >= b.MinLon && lon <= b.MaxLon, nil
 }
 
 // Save writes the RecordSet to disk in the filename provided
