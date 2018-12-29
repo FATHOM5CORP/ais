@@ -691,6 +691,7 @@ func TestRecordSet_Track(t *testing.T) {
 		args             args
 		recs             [][]string
 		want             []uint64 //hash values of each Record in the set
+		wantErr          bool
 		wantErrSubstring string
 	}{
 		{
@@ -703,6 +704,7 @@ func TestRecordSet_Track(t *testing.T) {
 			},
 			recs:             [][]string{firstRec},
 			want:             []uint64{localHash(firstRec)},
+			wantErr:          false,
 			wantErrSubstring: "",
 		},
 		{
@@ -715,6 +717,7 @@ func TestRecordSet_Track(t *testing.T) {
 			},
 			recs:             [][]string{track1, track2, track3},
 			want:             []uint64{localHash(track1), localHash(track2), localHash(track3)},
+			wantErr:          false,
 			wantErrSubstring: "",
 		},
 		{
@@ -726,6 +729,7 @@ func TestRecordSet_Track(t *testing.T) {
 				dur:   All,
 			},
 			want:             []uint64{},
+			wantErr:          true,
 			wantErrSubstring: "ErrEmptySet",
 		},
 		{
@@ -737,6 +741,7 @@ func TestRecordSet_Track(t *testing.T) {
 				dur:   All,
 			},
 			want:             []uint64{},
+			wantErr:          true,
 			wantErrSubstring: "cannot parse",
 		},
 		{
@@ -748,6 +753,7 @@ func TestRecordSet_Track(t *testing.T) {
 				dur:   All,
 			},
 			want:             []uint64{},
+			wantErr:          true,
 			wantErrSubstring: "invalid syntax",
 		},
 	}
@@ -758,13 +764,30 @@ func TestRecordSet_Track(t *testing.T) {
 				t.Errorf("test setup error: %v", err)
 				return
 			}
+
 			got, err := rs.Track(tt.args.mmsi, tt.args.start, tt.args.dur)
+
+			// If err returns non-nil from the first call then skip the second call and
+			// pass the returned error into the processing logic.  For nil errors then it
+			// should return the exact same result on successive calls.
+			// See issue #35 and #36 for details.
+			if err == nil {
+				got, err = rs.Track(tt.args.mmsi, tt.args.start, tt.args.dur)
+			}
+
+			// Check for the presence of an error
+			if (err != nil) && !tt.wantErr {
+				t.Errorf("RecordSet.Track() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			// Check that the error has the correct substring
+			// NOTE: the substring "" always validates
 			if (err != nil) && !strings.Contains(err.Error(), tt.wantErrSubstring) {
 				t.Errorf("RecordSet.Track() error = %v, wantErrSubstring %v", err, tt.wantErrSubstring)
 				return
 			}
+			// Only try and read from the RecordSet if err==nil
 			if err != nil {
-				// Only try and read from the RecordSet if err==nil
 				return
 			}
 

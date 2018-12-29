@@ -416,6 +416,14 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
 
+	// In order to reset the read pointer of rs to the same data it was pointing at
+	// when entering the function we create a new buffer and write all Reads to it.
+	// Then point rs.r to this buffer at the end of the function. A more (MUCH MORE)
+	// efficient solution would probably be controlling the Seek() value of the underlying
+	// decriptor, but csv.Reader does not expose this pointer.
+	copyBuf := &bytes.Buffer{}
+	copyWriter := bufio.NewWriter(copyBuf)
+
 	recordsLeftToWrite := n
 	for recordsLeftToWrite != 0 {
 		var rec *Record
@@ -426,6 +434,7 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("subset: read error on csv file: %v", err)
 		}
+		copyWriter.Write(rec.Data())
 
 		match, err := m.Match(rec)
 		if err != nil {
@@ -454,6 +463,9 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 	if recordsLeftToWrite == n { // no change, therefore no records written
 		return rs2, ErrEmptySet
 	}
+
+	copyWriter.Flush()
+	rs.r = csv.NewReader(copyBuf)
 	return rs2, nil
 }
 
