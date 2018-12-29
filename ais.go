@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
@@ -199,7 +198,7 @@ func OpenRecordSet(filename string) (*RecordSet, error) {
 	// The following Read() command also advances the file pointer so that
 	// it now points at the first data line.
 	var h Headers
-	h.fields, err = rs.r.Read()
+	h.Fields, err = rs.r.Read()
 	if err != nil {
 		return nil, fmt.Errorf("open recordset: %v", err)
 	}
@@ -293,7 +292,7 @@ func (rs *RecordSet) AppendField(newField string, requiredHeaders []string, gen 
 	rs2 := NewRecordSet()
 
 	h := rs.Headers()
-	h.fields = append(h.fields, newField)
+	h.Fields = append(h.Fields, newField)
 	rs2.SetHeaders(h)
 
 	// Find the index values for the Generator
@@ -371,41 +370,6 @@ func (rs *RecordSet) Close() error {
 
 // Headers returns the encapsulated headers data of the Recordset
 func (rs *RecordSet) Headers() Headers { return rs.h }
-
-// SetDictionary requires a JSON blob encoded as a []byte and tests the
-// contents of this JSON to ensure that json.Unmarshal can read the data
-// into a []ais.Definition. It return nil for the error value when the dictionary
-// properly unmarshals and a dictionary is attached. Returns a non-nil error
-// when the dictionary does not unmarshal into ais.Definition structs or the
-// JSON fields do not match the field names for an ais.Definition.
-func (rs *RecordSet) SetDictionary(blob []byte) error {
-
-	// Decode the JSON blob
-	var defs []Definition
-	err := json.Unmarshal(blob, &defs)
-	if err != nil {
-		rs.h.dictionary = nil
-		return fmt.Errorf("set dictionary: unmarshal blob: %v", err)
-	}
-
-	// No definition should have zero length fieldname, but when the blob
-	// contains the wrong fieldnames it may unmarshal but will have zero length
-	// values
-	for _, def := range defs {
-		if (len(def.Fieldname) == 0) || (len(def.Description) == 0) {
-			return errors.New("set dictionary: fieldnames in json blob may not match ais.Definition struct fields")
-		}
-	}
-
-	// create a map of the fields and descriptions in the recordset
-	defMap := make(map[string]string)
-	for _, def := range defs {
-		defMap[strings.TrimSpace(def.Fieldname)] = strings.TrimSpace(def.Description)
-	}
-
-	rs.h.dictionary = defMap
-	return nil
-}
 
 // SubsetLimit returns a pointer to a new RecordSet with the first n records that
 // return true from calls to Match(*Record) (bool, error) on the provided argument m
@@ -644,7 +608,7 @@ func (rs *RecordSet) Save(name string) error {
 		return fmt.Errorf("recordset save: %v", err)
 	}
 	rs.w = csv.NewWriter(rs.data) // FYI - csv uses bufio.NewWriter internally
-	rs.Write(rs.h.fields)
+	rs.Write(rs.h.Fields)
 
 	for {
 		rec, err := rs.r.Read()
@@ -772,30 +736,24 @@ func (rs *RecordSet) loadRecords() (*[]Record, error) {
 	return recs, nil
 }
 
-// Headers is the headers row of an AIS csv file.
+// Headers are the field names for AIS data elements in a Record.
 type Headers struct {
-	// fields is an encapsulated []string that cannot be altered by
-	// package users. It is the read only values from the first line of
-	// an ais.RecordSet and is initialized with ais.NewRecordSet.
-	fields []string
+	// Fields is an encapsulated []string . It is initialized from the first
+	// non-comment line of an AIS .csv file when ais.OpenRecordSet(filename string)
+	// is called.
+	Fields []string
 
+	// DEPRECATED
 	// dictionary is a map[fieldname]description composed of string values
 	// usually created from a JSON file that contains
 	// Definition structs for each of the fields in the set of ais.Headers.
-	dictionary map[string]string
+	// dictionary map[string]string
 }
 
 // NewHeaders returns a new set of Headers
-func NewHeaders(fields []string, defs []Definition) Headers {
+func NewHeaders(fields []string) Headers {
 	var h Headers
-	h.fields = fields
-	if defs != nil {
-		dict := make(map[string]string)
-		for _, d := range defs {
-			dict[d.Fieldname] = d.Description
-		}
-		h.dictionary = dict
-	}
+	h.Fields = fields
 	return h
 }
 
@@ -804,7 +762,7 @@ func NewHeaders(fields []string, defs []Definition) Headers {
 // an ais.Record contains a specific field.  If the Headers do not
 // contain the requested field ok is false.
 func (h Headers) Contains(field string) (i int, ok bool) {
-	for i, s := range h.fields {
+	for i, s := range h.Fields {
 		if s == field {
 			return i, true
 		}
@@ -819,31 +777,37 @@ func (h Headers) String() string {
 	const pad = ' ' //padding character for prety print
 
 	b := new(bytes.Buffer)
-	w := tabwriter.NewWriter(b, 0, 0, 1, pad, 0)
-	dictionaryPresent := false
-	if h.dictionary != nil {
-		dictionaryPresent = true
-	}
+	w := tabwriter.NewWriter(b, 0, 0, 2, pad, 0)
 
-	// Load the JSON field descriptions and create a map from them if
-	// the Headers set has a dictionary file
+	fmt.Fprintf(w, "Index\tHeader\n")
 
-	// For each header pretty print its name and description
-	for i, header := range h.fields {
+	// For each header pretty print its name and index
+	for i, header := range h.Fields {
 		header = strings.TrimSpace(header)
-		if d, ok := h.dictionary[header]; ok {
-			fmt.Fprintf(w, "%2d\t%s:\t%s\n", i, header, d)
-		} else {
-			defString := ""
-			if dictionaryPresent {
-				defString = "No definition in dictionary."
-			}
-			fmt.Fprintf(w, "%2d\t%s:\t%s\n", i, header, defString)
-		}
+		fmt.Fprintf(w, "%d\t%s\n", i, header)
 	}
 	w.Flush()
 
 	return b.String()
+}
+
+// Equals supports comparison testing of two Headers sets.
+func (h Headers) Equals(h2 Headers) bool {
+	if (h.Fields == nil) != (h2.Fields == nil) {
+		return false
+	}
+
+	if len(h.Fields) != len(h2.Fields) {
+		return false
+	}
+
+	for i, f := range h.Fields {
+		if f != h2.Fields[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Record wraps the return value from a csv.Reader because many publicly
@@ -881,34 +845,6 @@ func (r Record) Distance(r2 Record, latIndex, lonIndex int) (nm float64, err err
 	q := haversine.Coord{Lat: latQ, Lon: lonQ}
 	nm = haversine.Distance(p, q)
 	return nm, nil
-}
-
-// Equals supports comparison testing of two Headers sets. Because
-// a data dictionary for the Headers is a nice addition to a RecordSet
-// but not necessary for data science work in general, Equals does not
-// check to make sure both sets of Headers have matching dictrionaries.
-// That said, if one set of Headers does have a dictionary the set
-// being compared must also have a dictionary even if the data in those
-// two dictionaries is not compared for equality.
-func (h Headers) Equals(h2 Headers) bool {
-	if (h.dictionary == nil) != (h2.dictionary == nil) {
-		return false
-	}
-	if (h.fields == nil) != (h2.fields == nil) {
-		return false
-	}
-
-	if len(h.fields) != len(h2.fields) {
-		return false
-	}
-
-	for i, f := range h.fields {
-		if f != h2.fields[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 // ParseFloat wraps strconv.ParseFloat with a method to return a
