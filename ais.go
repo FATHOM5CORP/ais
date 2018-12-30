@@ -37,36 +37,16 @@ const TimeLayout = `2006-01-02T15:04:05`
 // will write to memory before being flushed.
 const flushThreshold = 250000
 
-// ErrEmptySet is the error returned by Subset variants and RecordSet.Track
-// when there are no records in the returned *RecordSet because nothing
-// matched the selection criteria. Functions should only return ErrEmptySet when
-// all processing occurred successfully, but the subset criteria provided no
-// matches to return.
+// ErrEmptySet is the error returned by Subset variants when there are no records
+// in the returned *RecordSet because nothing matched the selection criteria.
+// Functions should only return ErrEmptySet when all processing occurred successfully,
+// but the subset criteria provided no matches to return.
 var ErrEmptySet = errors.New("ErrEmptySet")
-
-// Beginning provides a time prior to the discovery of the transistor
-// as a convenience time to enter as the `start` time in functions like
-// RecordSet.Track.  It is highly unlikely that any ais RecordSet will include
-// data before this time and therefore start==Beginning will ensure that all
-// records from the beginning of the RecordSet are examined for matches.
-var Beginning = time.Date(1940, 1, 1, 1, 0, 0, 0, time.UTC)
-
-// All provides a duration of 200 years as a convenience argument for dur in
-// RecordSet.Track(start time.Time, dur time.Duration).  The intent is that the
-// start time plus All will encompass all records in the set.
-var All = time.Hour * 24 * 365 * 200 // 200 years
 
 // Matching provides an interface to pass into the Subset and LimitSubset functions
 // of a RecordSet.
 type Matching interface {
 	Match(*Record) (bool, error)
-}
-
-// Definition is the struct format that JSON dictionary files are
-// loaded into with ais.RecordSet.SetDictionary(blob []byte).
-type Definition struct {
-	Fieldname   string
-	Description string
 }
 
 // Match is the function signature for the argument to ais.Matching
@@ -372,6 +352,34 @@ func (rs *RecordSet) Close() error {
 // Headers returns the encapsulated headers data of the Recordset
 func (rs *RecordSet) Headers() Headers { return rs.h }
 
+// Save writes the RecordSet to disk in the filename provided
+func (rs *RecordSet) Save(name string) error {
+	var err error
+	rs.data, err = os.Create(name)
+	if err != nil {
+		return fmt.Errorf("recordset save: %v", err)
+	}
+	rs.w = csv.NewWriter(rs.data) // FYI - csv uses bufio.NewWriter internally
+	rs.Write(rs.h.Fields)
+
+	for {
+		rec, err := rs.r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("recordset save: read error on csv file: %v", err)
+		}
+		rs.Write(rec)
+	}
+	err = rs.Flush()
+	if err != nil {
+		return fmt.Errorf("recordset save: flush error: %v", err)
+	}
+
+	return nil
+}
+
 // SubsetLimit returns a pointer to a new RecordSet with the first n records that
 // return true from calls to Match(*Record) (bool, error) on the provided argument m
 // that implements the Matching interface.
@@ -489,84 +497,39 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 	return vs, nil
 }
 
-// SubsetByTrack is used within the Track function perform create a concrete Subset
-type subsetByTrack struct {
-	rs             *RecordSet
-	m              int64
-	s              time.Time
-	d              time.Duration
-	mmsiIndex      int
-	timestampIndex int
-}
+// SortByTime returns a pointer to a new RecordSet sorted in ascending order
+// by BaseDateTime.
+// NOTE: RECORDSETS ARE AN ON-DISK DATA STRUCTURE BUT SORTING IS AN IN-MEMORY
+// ACTIVITY THAT USES THE STANDARD SORT PACKAGE.  THEREFORE SORTING
+// REQUIRES LOADING THE ENTIRE RECORDSET INTO MEMORY AND HAS ONLY BEEN TESTED
+// ON RECORDSETS OF ABOUT A MILLION RECORDS.
+func (rs *RecordSet) SortByTime() (*RecordSet, error) {
+	rs2 := NewRecordSet()
+	rs2.SetHeaders(rs.Headers())
 
-// NewSubsetByTrack creates a new sbt structure and checks to ensure that the required
-// headers are present before construction.
-func newSubsetByTrack(rs *RecordSet, mmsi int64, start time.Time, dur time.Duration) (*subsetByTrack, error) {
-	sbt := subsetByTrack{
-		rs: rs,
-		m:  mmsi,
-		s:  start,
-		d:  dur,
-	}
-
-	var ok bool
-	sbt.mmsiIndex, ok = sbt.rs.Headers().Contains("MMSI")
-	if !ok {
-		return nil, fmt.Errorf("subsetByTrack: missing header MMSI")
-	}
-	sbt.timestampIndex, ok = sbt.rs.Headers().Contains("BaseDateTime")
-	if !ok {
-		return nil, fmt.Errorf("subsetByTrack: missing header BaseDateTime")
-	}
-
-	return &sbt, nil
-}
-
-// Match implements the Matching interface for subsetByType
-func (sbt subsetByTrack) Match(rec *Record) (bool, error) {
-	mmsi, err := rec.ParseInt(sbt.mmsiIndex)
+	bt, err := NewByTimestamp(rs)
 	if err != nil {
-		return false, fmt.Errorf("subsetByTrack: %v", err)
-	}
-	t, err := rec.ParseTime(sbt.timestampIndex)
-	if err != nil {
-		return false, fmt.Errorf("subsetByTrack: %v", err)
+		return nil, fmt.Errorf("sortbytime: %v", err)
 	}
 
-	mmsiMatch := mmsi == sbt.m
-	tAfterStart := t.After(sbt.s)
-	future := sbt.s.Add(sbt.d)
-	tBeforeEnd := t.Before(future)
-	return mmsiMatch && tAfterStart && tBeforeEnd, nil
-}
+	sort.Sort(bt)
 
-// Track returns a *RecordSet that contains a collection of ais.Record that are
-// sequential in time and belong to the same MMSI.  Arguments to the function are the
-// MMSI of the desired vessel, the start time to begin building the Track and the
-// duration for the amount of time the Track should cover. The returned set contains
-// records with a BaseDateTime on the open interval (start, start+dur). For any error
-// the function returns nil for the returned RecordSet.
-//
-// Convenience variables ais.Beginning of type time.Time and ais.All of type time.Duration
-// are provided in the package to use as the value of start and dur in order to start at
-// the beginning of a RecordSet and return all matches.
-//
-// In addition to normal errors returned when the function cannot successfully execute,
-// the returned error also includes a semephore built in the same implementation as io.EOF
-// so that clients of the Track function can test for an empty RecordSet.  This error
-// returns true from the comparison err == ais.ErrEmptyTrack.
-func (rs *RecordSet) Track(mmsi int64, start time.Time, dur time.Duration) (*RecordSet, error) {
-	sbt, err := newSubsetByTrack(rs, mmsi, start, dur)
-	if err != nil {
-		return nil, err
+	// Write the reports to the new RecordSet
+	// NOTE: Headers are written only when the RecordSet is saved to disk
+	written := 0
+	for _, rec := range *bt.data {
+		rs2.Write(rec)
+		written++
+		if written%flushThreshold == 0 {
+			err := rs2.Flush()
+			if err != nil {
+				return nil, fmt.Errorf("sortbytime: flush error writing to new recordset: %v", err)
+			}
+		}
 	}
-
-	rs2, err := rs.Subset(sbt)
-	if err == ErrEmptySet {
-		return nil, err
-	}
+	err = rs2.Flush()
 	if err != nil {
-		return nil, fmt.Errorf("track: %v", err)
+		return nil, fmt.Errorf("sortbytime: flush error writing to new recordset: %v", err)
 	}
 
 	return rs2, nil
@@ -599,34 +562,6 @@ func (b *Box) Match(rec *Record) (bool, error) {
 	}
 
 	return lat >= b.MinLat && lat <= b.MaxLat && lon >= b.MinLon && lon <= b.MaxLon, nil
-}
-
-// Save writes the RecordSet to disk in the filename provided
-func (rs *RecordSet) Save(name string) error {
-	var err error
-	rs.data, err = os.Create(name)
-	if err != nil {
-		return fmt.Errorf("recordset save: %v", err)
-	}
-	rs.w = csv.NewWriter(rs.data) // FYI - csv uses bufio.NewWriter internally
-	rs.Write(rs.h.Fields)
-
-	for {
-		rec, err := rs.r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("recordset save: read error on csv file: %v", err)
-		}
-		rs.Write(rec)
-	}
-	err = rs.Flush()
-	if err != nil {
-		return fmt.Errorf("recordset save: flush error: %v", err)
-	}
-
-	return nil
 }
 
 // ByTimestamp implements the sort.Interface for creating a RecordSet
@@ -675,44 +610,6 @@ func (bt ByTimestamp) Less(i, j int) bool {
 		panic(err)
 	}
 	return t1.Before(t2)
-}
-
-// SortByTime returns a pointer to a new RecordSet sorted in ascending order
-// by BaseDateTime.
-// NOTE: RECORDSETS ARE AN ON-DISK DATA STRUCTURE BUT SORTING IS AN IN-MEMORY
-// ACTIVITY THAT USES THE STANDARD SORT PACKAGE.  THEREFORE SORTING
-// REQUIRES LOADING THE ENTIRE RECORDSET INTO MEMORY AND HAS ONLY BEEN TESTED
-// ON RECORDSETS OF ABOUT A MILLION RECORDS.
-func (rs *RecordSet) SortByTime() (*RecordSet, error) {
-	rs2 := NewRecordSet()
-	rs2.SetHeaders(rs.Headers())
-
-	bt, err := NewByTimestamp(rs)
-	if err != nil {
-		return nil, fmt.Errorf("sortbytime: %v", err)
-	}
-
-	sort.Sort(bt)
-
-	// Write the reports to the new RecordSet
-	// NOTE: Headers are written only when the RecordSet is saved to disk
-	written := 0
-	for _, rec := range *bt.data {
-		rs2.Write(rec)
-		written++
-		if written%flushThreshold == 0 {
-			err := rs2.Flush()
-			if err != nil {
-				return nil, fmt.Errorf("sortbytime: flush error writing to new recordset: %v", err)
-			}
-		}
-	}
-	err = rs2.Flush()
-	if err != nil {
-		return nil, fmt.Errorf("sortbytime: flush error writing to new recordset: %v", err)
-	}
-
-	return rs2, nil
 }
 
 // Unexported loadRecords reads the RecordSet into memory and returns a
