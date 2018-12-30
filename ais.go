@@ -385,7 +385,7 @@ func (rs *RecordSet) Save(name string) error {
 // that implements the Matching interface.
 // Returns nil for the *RecordSet when error is non-nil.
 // For n values less than zero, SubsetLimit will return all matches in the set.
-func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
+func (rs *RecordSet) SubsetLimit(m Matching, n int, multipass bool) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
 
@@ -407,7 +407,12 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("subset: read error on csv file: %v", err)
 		}
-		copyWriter.Write(rec.Data())
+
+		// This step is a SIGNFICANT performance penalty, but helpful in scenarios when
+		// the underlying file cannot be reopened.
+		if multipass {
+			copyWriter.Write(rec.Data())
+		}
 
 		match, err := m.Match(rec)
 		if err != nil {
@@ -436,9 +441,10 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 	if recordsLeftToWrite == n { // no change, therefore no records written
 		return rs2, ErrEmptySet
 	}
-
-	copyWriter.Flush()
-	rs.r = csv.NewReader(copyBuf)
+	if multipass {
+		copyWriter.Flush()
+		rs.r = csv.NewReader(copyBuf)
+	}
 	return rs2, nil
 }
 
@@ -447,7 +453,7 @@ func (rs *RecordSet) SubsetLimit(m Matching, n int) (*RecordSet, error) {
 // that implements the Matching interface.
 // Returns nil for the *RecordSet when error is non-nil.
 func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
-	return rs.SubsetLimit(m, -1)
+	return rs.SubsetLimit(m, -1, false)
 }
 
 // UniqueVessels returns a VesselMap of every vessel in the dataset

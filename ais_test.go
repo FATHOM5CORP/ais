@@ -760,7 +760,7 @@ func TestRecordSet_SubsetLimit(t *testing.T) {
 				first: tt.fields.first,
 				stash: tt.fields.stash,
 			}
-			got, err := rs.SubsetLimit(tt.args.m, tt.args.n)
+			got, err := rs.SubsetLimit(tt.args.m, tt.args.n, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RecordSet.SubsetLimit() error = %v, wantErr %v", err, tt.wantErr)
 				return
