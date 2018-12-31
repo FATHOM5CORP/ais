@@ -89,8 +89,8 @@ type Generator interface {
 }
 
 // Geohasher is the base type for implementing the Generator interface to
-// append a github.commccloughlin/geohash to each Record in the RecordSet.
-// Pass NewGeohaser(rs *Recordset) as the gen argument of RecordSet.AppendField to
+// append a github.com/mccloughlin/geohash to each Record in the RecordSet.
+// Pass NewGeohasher(rs *Recordset) as the gen argument of RecordSet.AppendField to
 // add a geohash to a RecordSet.
 type Geohasher RecordSet
 
@@ -104,7 +104,7 @@ func NewGeohasher(rs *RecordSet) *Geohasher {
 // returned geohash is accurate to 22 bits of precision which corresponds to
 // about .1 degree differences in lattitude and longitude.  The index values for
 // the variadic function on a *Geohasher must be the index of "LAT" and "LON"
-// in the Record, rec.  Field will come back nil for any non-nil error returned.
+// in the rec.  Field will come back nil for any non-nil error returned.
 func (g *Geohasher) Generate(rec Record, index ...int) (Field, error) {
 	if len(index) != 2 {
 		return "", fmt.Errorf("geohash: generate: len(index) must equal" +
@@ -384,6 +384,16 @@ func (rs *RecordSet) Save(name string) error {
 // that implements the Matching interface.
 // Returns nil for the *RecordSet when error is non-nil.
 // For n values less than zero, SubsetLimit will return all matches in the set.
+//
+// SubsetLimit also implement a bool argument, multipass, that will reset the read
+// pointer in the RecordSet to the beginning of the data when set to true.  This has two
+// important impacts.  First, it allows the same rs receiver to be used multiple times
+// in a row because the read pointer is reset each time after hitting EOF.  Second, it
+// has a significant performance penalty when dealing with a RecordSet of about one
+// million or more records.  When performance impacts from setting multipass to true
+// outweigh the convenience of additional boilerplate code it is quite helpful.  In
+// situations where it is causing an issue use rs.Close() and then OpenRecordSet(filename)
+// to get a fresh copy of the data.
 func (rs *RecordSet) SubsetLimit(m Matching, n int, multipass bool) (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
@@ -465,7 +475,7 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 // UniqueVesselsMulti provides an option to control whether the RecordSet read pointer
 // is returned to the top of the file.  Using this option has a significant performance
 // cost and is not recommended for any RecordSet with more than one million records.
-// However, setting this version to true is valuable when the results VesselMap are going
+// However, setting this version to true is valuable when the returned VesselMap is going
 // to be used for additional queries on the same receiver. For example, ranging over
 // the returned VesselSet to create a Subset of data for each ship requires reusing the
 // rs reciver in most cases.
@@ -697,9 +707,8 @@ func (h Headers) ContainsMulti(fields ...string) (idxMap map[string]int, ok bool
 	return idxMap, true
 }
 
-// String satisfies the fmt.Stringer interface for Headers.
-// If a dictionary has been provided then it prints the headers and
-// their definitions.
+// String satisfies the fmt.Stringer interface for Headers.  It pretty prints
+// each index value and header, one line per header.
 func (h Headers) String() string {
 	const pad = ' ' //padding character for prety print
 
