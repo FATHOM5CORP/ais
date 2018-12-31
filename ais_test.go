@@ -182,34 +182,6 @@ func getTime(s string) time.Time {
 // 	}
 // }
 
-func TestNewHeaders(t *testing.T) {
-	type args struct {
-		Fields []string
-	}
-	tests := []struct {
-		name string
-		args args
-		want Headers
-	}{
-		{
-			name: "pass minimum set",
-			args: args{
-				Fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-			},
-			want: Headers{
-				Fields: []string{"MMSI", "LAT", "LON", "BaseDateTime"},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewHeaders(tt.args.Fields); !got.Equals(tt.want) {
-				t.Errorf("NewHeaders() = \n%v \nwant \n%v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestHeaders_Contains(t *testing.T) {
 	type args struct {
 		field string
@@ -892,7 +864,7 @@ func TestRecordSet_UniqueVessels(t *testing.T) {
 	}
 }
 
-func TestRecordSet_UniqueVessels_DoubleUse(t *testing.T) {
+func TestRecordSet_UniqueVesselsMulti(t *testing.T) {
 	type fields struct {
 		r     *csv.Reader
 		w     *csv.Writer
@@ -935,16 +907,16 @@ func TestRecordSet_UniqueVessels_DoubleUse(t *testing.T) {
 				rec, _ := rs.Read()
 				rs.SetHeaders(Headers{[]string(*rec)})
 			}
-			got, _ := rs.UniqueVessels()
+			got, _ := rs.UniqueVesselsMulti(true)
 			// got, _ = rs.UniqueVessels()
 			// got, _ = rs.UniqueVessels()
-			got, err := rs.UniqueVessels()
+			got, err := rs.UniqueVesselsMulti(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("RecordSet.UniqueVessels() error = %v, wantErr = %v", err, tt.wantErr)
+				t.Errorf("RecordSet.UniqueVesselsMulti() error = %v, wantErr = %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RecordSet.UniqueVessels() = %v, want = %v", got, tt.want)
+				t.Errorf("RecordSet.UniqueVesselsMulti() = %v, want = %v", got, tt.want)
 			}
 		})
 	}

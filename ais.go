@@ -82,29 +82,29 @@ type Field string
 // from the index values of existing Fields in a Record.  The receiver for
 // Generator should be a pointer in order to avoid creating a copy of the
 // Record when Generate is called millions of times iterating over a large
-// RecordSet.  The Generator interface is used in the AppendField method
-// of RecordSet.
+// RecordSet.  Concrete implementation of the Generator interface are
+// required arguments to RecordSet.AppendField(...).
 type Generator interface {
 	Generate(rec Record, index ...int) (Field, error)
 }
 
-// Geohasher is the base type for implementing the Generator interface and
-// appends a github.commccloughlin/geohash to each Record in the RecordSet.
+// Geohasher is the base type for implementing the Generator interface to
+// append a github.commccloughlin/geohash to each Record in the RecordSet.
+// Pass NewGeohaser(rs *Recordset) as the gen argument of RecordSet.AppendField to
+// add a geohash to a RecordSet.
 type Geohasher RecordSet
 
-// NewGeohasher returns a pointer to a new Geohasher.  The simplest use of the
-// GeoHasher type to append a geohash field to a RecordSet is to call AppendField
-// and pass NewGeohasher(rs) as the Generator argument in AppendField.
+// NewGeohasher returns a pointer to a new Geohasher.
 func NewGeohasher(rs *RecordSet) *Geohasher {
 	g := Geohasher(*rs)
 	return &g
 }
 
-// Generate returns a geohash Field.  The geohash returned is accurate to 22
-// bits of precision which corresponds to about .1 degree differences in
-// lattitude and longitude.  The index values for the variadic function on
-// a *Geohasher must be the index of "LAT" and "LON" in the Record, rec.  Field
-// will come back nil for any non-nil error returned.
+// Generate imlements the Generator interface to create a geohash Field.  The
+// returned geohash is accurate to 22 bits of precision which corresponds to
+// about .1 degree differences in lattitude and longitude.  The index values for
+// the variadic function on a *Geohasher must be the index of "LAT" and "LON"
+// in the Record, rec.  Field will come back nil for any non-nil error returned.
 func (g *Geohasher) Generate(rec Record, index ...int) (Field, error) {
 	if len(index) != 2 {
 		return "", fmt.Errorf("geohash: generate: len(index) must equal" +
@@ -126,8 +126,9 @@ func (g *Geohasher) Generate(rec Record, index ...int) (Field, error) {
 }
 
 // RecordSet is an the high level interface to deal with comma
-// separated value files of AIS records.  Unexported fields are
-// encapsulated by getter methods.
+// separated value files of AIS records. A RecordSet is not usually
+// constructed from the struct.  Use NewRecordSet() to create an
+// empty set, or OpenRecordSet(filename) to read a file on disk.
 type RecordSet struct {
 	r     *csv.Reader   // internally held csv pointer
 	w     *csv.Writer   // internally held csv pointer
@@ -156,11 +157,9 @@ func NewRecordSet() *RecordSet {
 }
 
 // OpenRecordSet takes the filename of an ais data file as its input.
-// It returns a pointer to the RecordSet and nil upon successfully validating
-// that the file can be read by an encoding/csv Reader and that the first
-// line of the file contains the minimum set of headers to create an
-// ais.Report. It returns a nil Recordset and a non-nil error if the file
-// cannot be opened or the headers do not pass validation.
+// It returns a pointer to the RecordSet and a nil error upon successfully
+// validating that the file can be read by an encoding/csv Reader. It returns
+// a nil Recordset on any non-nil error.
 func OpenRecordSet(filename string) (*RecordSet, error) {
 	rs := NewRecordSet()
 
@@ -175,7 +174,7 @@ func OpenRecordSet(filename string) (*RecordSet, error) {
 
 	rs.w = csv.NewWriter(f)
 
-	// The first line of a valid ais datafile should contain the headers.
+	// The first non-comment line of a valid ais datafile should contain the headers.
 	// The following Read() command also advances the file pointer so that
 	// it now points at the first data line.
 	var h Headers
@@ -456,11 +455,21 @@ func (rs *RecordSet) Subset(m Matching) (*RecordSet, error) {
 	return rs.SubsetLimit(m, -1, false)
 }
 
-// UniqueVessels returns a VesselMap of every vessel in the dataset
-// NOTE: THE VESSELMAP RETURNED IS BUILT ONLY ON THE MMSI AND VESSEL NAME
-// OF THE SHIP.  OTHER FIELDS OF VESSEL MAY NEED TO BE ADDED FOR FUTURE
-// ANALYSIS CAPABILITIES OF THE PACKAGE.
+// UniqueVessels returns a VesselMap, map[Vessel]int, that includes a unique key for
+// each Vessel in the RecordSet.  The value of each key is the number of Records for
+// that Vessel in the data.
 func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
+	return rs.UniqueVesselsMulti(false)
+}
+
+// UniqueVesselsMulti provides an option to control whether the RecordSet read pointer
+// is returned to the top of the file.  Using this option has a significant performance
+// cost and is not recommended for any RecordSet with more than one million records.
+// However, setting this version to true is valuable when the results VesselMap are going
+// to be used for additional queries on the same receiver. For example, ranging over
+// the returned VesselSet to create a Subset of data for each ship requires reusing the
+// rs reciver in most cases.
+func (rs *RecordSet) UniqueVesselsMulti(multipass bool) (VesselSet, error) {
 	vs := make(VesselSet)
 	var defaultVesselName = "no VesselName header"
 
@@ -489,7 +498,9 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unique vessel: read error on csv file: %v", err)
 		}
-		copyWriter.Write(rec.Data())
+		if multipass {
+			copyWriter.Write(rec.Data())
+		}
 
 		if okVesselName {
 			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: (*rec)[vesselNameIndex]}]++
@@ -497,18 +508,15 @@ func (rs *RecordSet) UniqueVessels() (VesselSet, error) {
 			vs[Vessel{MMSI: (*rec)[mmsiIndex], VesselName: defaultVesselName}]++
 		}
 	}
-
-	copyWriter.Flush()
-	rs.r = csv.NewReader(copyBuf)
+	if multipass {
+		copyWriter.Flush()
+		rs.r = csv.NewReader(copyBuf)
+	}
 	return vs, nil
 }
 
 // SortByTime returns a pointer to a new RecordSet sorted in ascending order
 // by BaseDateTime.
-// NOTE: RECORDSETS ARE AN ON-DISK DATA STRUCTURE BUT SORTING IS AN IN-MEMORY
-// ACTIVITY THAT USES THE STANDARD SORT PACKAGE.  THEREFORE SORTING
-// REQUIRES LOADING THE ENTIRE RECORDSET INTO MEMORY AND HAS ONLY BEEN TESTED
-// ON RECORDSETS OF ABOUT A MILLION RECORDS.
 func (rs *RecordSet) SortByTime() (*RecordSet, error) {
 	rs2 := NewRecordSet()
 	rs2.SetHeaders(rs.Headers())
@@ -571,7 +579,11 @@ func (b *Box) Match(rec *Record) (bool, error) {
 }
 
 // ByTimestamp implements the sort.Interface for creating a RecordSet
-// sorted by BaseDateTime.
+// sorted by BaseDateTime. The ByTimestamp struct and its Len, Swap, and Less
+// methods are exported in order to serve as examples for how to implement the
+// sort.Interface for a RecordSet.  If you want to sort a RecordSet by time you
+// do not need to call these methods.  Just call RecordSet.SortByTime() directly
+// to take advantage of the implementation provided in the package.
 type ByTimestamp struct {
 	h    Headers
 	data *[]Record
@@ -654,15 +666,8 @@ type Headers struct {
 	// dictionary map[string]string
 }
 
-// NewHeaders returns a new set of Headers
-func NewHeaders(fields []string) Headers {
-	var h Headers
-	h.Fields = fields
-	return h
-}
-
 // Contains returns the index of a specific header.  This provides
-// a nice syntax ais.Headers.Contains("LAT") to ensure
+// a nice syntax ais.Headers().Contains("LAT") to ensure
 // an ais.Record contains a specific field.  If the Headers do not
 // contain the requested field ok is false.
 func (h Headers) Contains(field string) (i int, ok bool) {
