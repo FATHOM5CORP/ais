@@ -25,7 +25,7 @@ func Example_distance() {
 	rec1 := ais.Record(data1)
 	rec2 := ais.Record(data2)
 
-	nm, err := rec1.Distance(rec2, idxMap["LAT"], idxMap["LON"])
+	nm, err := rec1.Distance(rec2, idxMap["LAT"].Idx, idxMap["LON"].Idx)
 	if err != nil {
 		panic(err)
 	}

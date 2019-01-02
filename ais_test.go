@@ -252,7 +252,7 @@ func TestHeaders_ContainsMulti(t *testing.T) {
 		name       string
 		fields     fields
 		args       args
-		wantIdxMap map[string]int
+		wantIdxMap map[string]HeaderMap
 		wantOk     bool
 	}{
 		{
@@ -263,7 +263,7 @@ func TestHeaders_ContainsMulti(t *testing.T) {
 			args: args{
 				fields: []string{"MMSI"},
 			},
-			wantIdxMap: map[string]int{"MMSI": 0},
+			wantIdxMap: map[string]HeaderMap{"MMSI": {true, 0}},
 			wantOk:     true,
 		},
 		{
@@ -274,7 +274,7 @@ func TestHeaders_ContainsMulti(t *testing.T) {
 			args: args{
 				fields: []string{"MMSI", "VesselName", "BaseDateTime"},
 			},
-			wantIdxMap: map[string]int{"MMSI": 0, "VesselName": 7, "BaseDateTime": 1},
+			wantIdxMap: map[string]HeaderMap{"MMSI": {true, 0}, "VesselName": {true, 7}, "BaseDateTime": {true, 1}},
 			wantOk:     true,
 		},
 		{
@@ -300,6 +300,61 @@ func TestHeaders_ContainsMulti(t *testing.T) {
 			}
 			if gotOk != tt.wantOk {
 				t.Errorf("Headers.ContainsMulti() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+func TestHeaders_ContainsMulti_BadUsage(t *testing.T) {
+	type fields struct {
+		Fields []string
+	}
+	type args struct {
+		fields []string
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		args       args
+		rec        *Record
+		badHeader  string
+		wantIdxMap map[string]HeaderMap
+		wantOk     bool
+		wantVal    string
+	}{
+		{
+			name: "ok, but wrong usage",
+			fields: fields{
+				Fields: strings.Split(defaultHeadersString, ","),
+			},
+			args: args{
+				fields: []string{"MMSI", "BaseDateTime"},
+			},
+			rec:       &testRec0,
+			badHeader: "Timestamp",
+			wantIdxMap: map[string]HeaderMap{
+				"MMSI":         HeaderMap{Present: true, Idx: 0},
+				"BaseDateTime": HeaderMap{Present: true, Idx: 1},
+			},
+			wantOk:  false,
+			wantVal: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := Headers{
+				Fields: tt.fields.Fields,
+			}
+			gotIdxMap, _ := h.ContainsMulti(tt.args.fields...)
+			if !reflect.DeepEqual(gotIdxMap, tt.wantIdxMap) {
+				t.Errorf("Headers.ContainsMulti() gotIdxMap = %v, want = %v", gotIdxMap, tt.wantIdxMap)
+			}
+
+			gotVal, gotOk := tt.rec.ValueFrom(gotIdxMap[tt.badHeader])
+			if gotOk != tt.wantOk {
+				t.Errorf("Headers.ContainsMulti() gotOk = %v, want = %v", gotOk, tt.wantOk)
+			}
+			if gotVal != tt.wantVal {
+				t.Errorf("Headers.ContainsMulti() gotVal = %v, wantVal = %v", gotVal, tt.wantVal)
 			}
 		})
 	}

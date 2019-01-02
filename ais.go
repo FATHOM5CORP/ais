@@ -689,17 +689,24 @@ func (h Headers) Contains(field string) (i int, ok bool) {
 	return 0, false
 }
 
+// HeaderMap is the returned map value for ContainsMulti. See the distance example
+// for using the HeaderMap.
+type HeaderMap struct {
+	Present bool
+	Idx     int
+}
+
 // ContainsMulti returns a map[string]int where the map keys are the
 // field names and the int values are the index positions of the various
 // fields in the Headers set. If there is an error determining an index
 // position for any field then idxMap returns nil and ok is false.  Users
 // should always check for !ok and handle accordingly.
-func (h Headers) ContainsMulti(fields ...string) (idxMap map[string]int, ok bool) {
-	idxMap = make(map[string]int)
+func (h Headers) ContainsMulti(fields ...string) (idxMap map[string]HeaderMap, ok bool) {
+	idxMap = make(map[string]HeaderMap)
 	for _, f := range fields { // note range over argument not receiver
 		idx, ok := h.Contains(f)
 		if ok {
-			idxMap[f] = idx
+			idxMap[f] = HeaderMap{Present: true, Idx: idx}
 		} else {
 			return nil, false
 		}
@@ -819,6 +826,32 @@ func (r Record) ParseTime(index int) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return t, nil
+}
+
+// Value returns the record value for the []string index. For out out bounds idx
+// arguments or other errors Value returns an empty string for val and false for ok.
+func (r *Record) Value(idx int) (val string, ok bool) {
+	for idx < 0 {
+		return "", false
+	}
+	if idx > len(*r)-1 {
+		return "", false
+	}
+	return (*r)[idx], true
+}
+
+// ValueFrom HeaderMap returns the record value decribed in the HeaderMap. The argument
+// is a HeaderMap and normal usage has the nice syntax rec.ValueFrom(idxMap["LAT"]),
+// where idxMap is the returned value from ContainsMulti(...). Returns an empty
+// string and false when hm.Present == false.
+func (r *Record) ValueFrom(hm HeaderMap) (val string, ok bool) {
+	if !hm.Present {
+		return "", false
+	}
+	if hm.Idx < 0 || hm.Idx > len(*r)-1 {
+		return "", false
+	}
+	return (*r)[hm.Idx], true
 }
 
 // Parse converts the string record values into an ais.Report.  It
